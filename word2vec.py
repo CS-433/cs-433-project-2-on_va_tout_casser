@@ -211,6 +211,9 @@ if __name__ == '__main__':
     with open('data_vectors/y.npy', 'wb') as f2:
         np.save(f2, y)
     
+    with open('dataset/x_test.npy.txt', 'wb') as f3:
+        np.save(f3, X_test)
+
     print("terminated")
 
     
