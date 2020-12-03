@@ -231,7 +231,8 @@ model.add(
     )
 )
 model.add(LSTM(dimension, dropout=0.1))
-model.add(Dense(1, activation="sigmoid"))
+model.add(Dense(1,activation="relu")) # try with relu
+#model.add(Dense(1, activation="sigmoid"))
 
 
 optimizer = Adam()#learning_rate=3e-4)
@@ -241,10 +242,11 @@ model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=["accurac
 history = model.fit(
     train_padded,
     train_labels,
-    epochs=1, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL
+    epochs=2, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL VS 4H IN FULL
     validation_data=(test_padded, test_labels),
     verbose=1,
-     use_multiprocessing = True,
+    batch_size = 16,
+     use_multiprocessing = False,
 )
 
 
