@@ -7,16 +7,16 @@ import time
 from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 # from keras import Constant,Embedding, LSTM, Dense, Dropout,Sequential
-from tensorflow.python.keras.optimizers import Adam
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Embedding, LSTM, Dense, Dropout
-from tensorflow.python.keras.initializers import Constant
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from tensorflow.keras.initializers import Constant
 import re
 import string
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import nltk
-
+from datetime import datetime
 def remove_URL(text):
     url = re.compile(r"https?://\S+|www\.\S+")
     return url.sub(r"", text)
@@ -65,8 +65,33 @@ def create_corpus_tk(train):
         words = [word.lower() for word in word_tokenize(text)]
         corpus.append(words)
     return corpus
-
+def get_train_labels_with_test(train_percentage):
+    path = "twitter-datasets\\"
+    #train_sentences,train_labels,test_sentences,test_labels = list(),list(),list(),list()
+    train = list()
+    labels = list()
+    with open(path + "train_pos.txt",encoding='utf-8',errors="namereplace") as f :
+        for pos_line in f:
+            train.append(pos_line.replace("\n"," "))
+            labels.append(1)
+    train_size_pos = int(len(train)* train_percentage)
+    train_sentences = train[:train_size_pos]
+    train_labels = labels[:train_size_pos]
+    test_sentences = train[train_size_pos:]
+    test_labels = labels[train_size_pos:]
+    labels = list()
+    with open(path + "train_neg.txt",encoding='utf-8',errors="namereplace") as f :
+        for neg_line in f:
+            train.append(neg_line.replace("\n"," "))
+            labels.append(0)
+    train_size = int((len(train)-train_size_pos)* train_percentage)
+    train_sentences.extend(train[train_size_pos:train_size+train_size_pos])
+    train_labels.extend(labels[:train_size])
+    test_sentences.extend(train[train_size+train_size_pos:])
+    test_labels.extend(labels[train_size:])
+    return train,np.array(train_sentences),np.array(train_labels),np.array(test_sentences),np.array(test_labels)
 def get_train_label():
+    assert False #make sure you never use this method again
     path = "twitter-datasets\\"
     train = list()
     labels = list()
@@ -82,10 +107,15 @@ def get_train_label():
 def load_test_data():
     path = "twitter-datasets\\"
     test = list()
+    indices = list()
     with open(path + "test_data.txt",encoding='utf-8',errors="namereplace") as f :
         for test_line in f:
-            test.append(test_line)
-    return test
+            sep = test_line.find(",")
+            id_ = test_line[0:sep]
+            tweet = test_line[sep+1:]
+            test.append(tweet)
+            indices.append(id_)
+    return test,indices
 
 plt.style.use(style="seaborn")
 
@@ -101,23 +131,24 @@ plt.style.use(style="seaborn")
 # stop = set(stopwords.words("english"))
 
 # train["text"] = train["text"].map(remove_stopwords)
-train,labels = get_train_label()
+#train,labels = get_train_label()
 
-corpus = create_corpus_tk(train) # takes approx. 10 minutes in full or <1 min in not full
+
+
+
+# train_size = int(len(train)* 0.8)
+total_train,train_sentences,train_labels,test_sentences,test_labels = get_train_labels_with_test(0.8)
+# train_sentences = np.array(train[:train_size])
+# train_labels = np.array(labels[:train_size])
+
+# test_sentences = np.array(train[train_size:])
+# test_labels = np.array(labels[train_size:])
+# print(total_train.shape,flush=True)
+corpus = create_corpus_tk(total_train) # takes approx. 10 minutes in full or <1 min in not full
 
 
 num_words = len(corpus)
 print(num_words,flush = True)
-
-
-train_size = int(len(train)* 0.8)
-
-train_sentences = train[:train_size]
-train_labels = labels[:train_size]
-
-test_sentences = train[train_size:]
-test_labels = labels[train_size:]
-
 max_len = 157 # is average #words per tweet + 2* its standard deviation
 
 
@@ -182,21 +213,22 @@ model.add(LSTM(dimension, dropout=0.1))
 model.add(Dense(1, activation="sigmoid"))
 
 
-optimizer = Adam(learning_rate=3e-4)
+optimizer = Adam()#learning_rate=3e-4)
 
 model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=["accuracy"])
 
 history = model.fit(
     train_padded,
     train_labels,
-    epochs=20,
+    epochs=1, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL
     validation_data=(test_padded, test_labels),
     verbose=1,
+    # use_multiprocessing = True,
 )
 
 
 # sequences = tokenizer.texts_to_sequences(test.text)
-test_data = load_test_data()
+test_data,indices = load_test_data()
 sequences = tokenizer.texts_to_sequences(test_data)
 padded = pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")
 
@@ -204,7 +236,23 @@ pred = model.predict(padded)
 pred_int = pred.round().astype("int")
 
 print("prediction is",pred)
+print("type of pred is ",type(pred))
 
+print("assert equation ",indices[len(indices)-1],len(pred))
+try:
+    resFile = open("submission_GLOVE"+"dim"+str(dimension)+"_"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+    resFile.write("Id,Prediction\n")
+    for i in range(len(pred_int)):
+        predicted = pred_int[i]
+        if(predicted == 0):
+            predicted = -1
+        elif(predicted != 1):
+            print("Prediction type error on ",predicted)
+        resFile.write(str(indices[i])+","+str(predicted)+"\n")
+except :
+    print("Error encountered, try again")
+finally:
+    resFile.close()
 
 print("Rounded prediction is ",pred_int)
 
