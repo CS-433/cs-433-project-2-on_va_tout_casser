@@ -34,8 +34,8 @@ def addLabels(full=False):
                 fileRes.close()
                 os.remove(path+res)
         finally:
-            fileRes.close()
-addLabels(True)
+            if(not fileRes.closed()):
+                fileRes.close()
 
 if __name__ == "__main__":
     full = True
@@ -47,21 +47,22 @@ if __name__ == "__main__":
     else:
         res = "res_fasttext.txt"
     model = fasttext.train_supervised(path+res)
-    ran = np.random.randint(10)
-    resFile = open("submission_"+str(full)+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
-    resFile.write("Id,Prediction\n")
-    with open(path+"test_data.txt") as f:
-        for line in f:
-            sep = line.find(",")
-            id_ = line[0:sep]
-            tweet = line[sep+1:]
-            tweet = tweet.replace("\n","")
-            pred = model.predict(tweet)
-            if(pred[0][0] == "__label__0"):
-                pred = -1
-            elif(pred[0][0] == "__label__1"):
-                pred = 1
-            else:
-                print("Not pred as predicted ! ",pred[0],pred[0][0])
-            resFile.write(str(id_)+","+str(pred)+"\n")
-    resFile.close()
+    try:
+        resFile = open("submission_"+str(full)+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+        resFile.write("Id,Prediction\n")
+        with open(path+"test_data.txt") as f:
+            for line in f:
+                sep = line.find(",")
+                id_ = line[0:sep]
+                tweet = line[sep+1:]
+                tweet = tweet.replace("\n","")
+                pred = model.predict(tweet)
+                if(pred[0][0] == "__label__0"):
+                    pred = -1
+                elif(pred[0][0] == "__label__1"):
+                    pred = 1
+                else:
+                    print("Not pred as predicted ! ",pred[0],pred[0][0])
+                resFile.write(str(id_)+","+str(pred)+"\n")
+    finally:
+        resFile.close()
