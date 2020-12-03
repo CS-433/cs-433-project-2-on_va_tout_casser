@@ -1,3 +1,16 @@
+"""
+Before using this, make sure to download from https://nlp.stanford.edu/projects/glove/ the glove.twitter.27B.zip 
+and unzip it in the twitter-datasets folder !
+
+PS: you need quite a lot of RAM :)
+
+"""
+
+
+
+
+
+
 from IPython.core.debugger import set_trace
 import pandas as pd
 import numpy as np
@@ -12,11 +25,13 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
 from tensorflow.keras.initializers import Constant
 import re
+import gc
 import string
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import nltk
 from datetime import datetime
+import os.path
 def remove_URL(text):
     url = re.compile(r"https?://\S+|www\.\S+")
     return url.sub(r"", text)
@@ -70,40 +85,42 @@ def get_train_labels_with_test(train_percentage):
     #train_sentences,train_labels,test_sentences,test_labels = list(),list(),list(),list()
     train = list()
     labels = list()
-    with open(path + "train_pos.txt",encoding='utf-8',errors="namereplace") as f :
+    with open(path + "train_pos_full.txt",encoding='utf-8',errors="namereplace") as f :
         for pos_line in f:
             train.append(pos_line.replace("\n"," "))
             labels.append(1)
-    train_size_pos = int(len(train)* train_percentage)
+    train_size_pos = int(len(labels)* train_percentage)
     train_sentences = train[:train_size_pos]
     train_labels = labels[:train_size_pos]
     test_sentences = train[train_size_pos:]
     test_labels = labels[train_size_pos:]
+    trained_size = len(train)
     labels = list()
-    with open(path + "train_neg.txt",encoding='utf-8',errors="namereplace") as f :
+    with open(path + "train_neg_full.txt",encoding='utf-8',errors="namereplace") as f :
         for neg_line in f:
             train.append(neg_line.replace("\n"," "))
             labels.append(0)
-    train_size = int((len(train)-train_size_pos)* train_percentage)
-    train_sentences.extend(train[train_size_pos:train_size+train_size_pos])
-    train_labels.extend(labels[:train_size])
-    test_sentences.extend(train[train_size+train_size_pos:])
-    test_labels.extend(labels[train_size:])
+    train_size_neg = int((len(labels))* train_percentage)
+    
+    train_sentences.extend(train[trained_size:train_size_neg+trained_size])
+    train_labels.extend(labels[:train_size_neg])
+    test_sentences.extend(train[train_size_neg+trained_size:])
+    test_labels.extend(labels[train_size_neg:])
     return train,np.array(train_sentences),np.array(train_labels),np.array(test_sentences),np.array(test_labels)
-def get_train_label():
-    assert False #make sure you never use this method again
-    path = "twitter-datasets\\"
-    train = list()
-    labels = list()
-    with open(path + "train_pos.txt",encoding='utf-8',errors="namereplace") as f :
-        for pos_line in f:
-            train.append(pos_line)
-            labels.append(1)
-    with open(path + "train_neg.txt",encoding='utf-8',errors="namereplace") as f :
-        for neg_line in f:
-            train.append(neg_line)
-            labels.append(0)
-    return train,labels
+# def get_train_label():
+#     assert False #make sure you never use this method again
+#     path = "twitter-datasets\\"
+#     train = list()
+#     labels = list()
+#     with open(path + "train_pos_full.txt",encoding='utf-8',errors="namereplace") as f :
+#         for pos_line in f:
+#             train.append(pos_line)
+#             labels.append(1)
+#     with open(path + "train_neg_full.txt",encoding='utf-8',errors="namereplace") as f :
+#         for neg_line in f:
+#             train.append(neg_line)
+#             labels.append(0)
+#     return train,labels
 def load_test_data():
     path = "twitter-datasets\\"
     test = list()
@@ -119,37 +136,34 @@ def load_test_data():
 
 plt.style.use(style="seaborn")
 
-
-# train = pd.read_csv(f"data/train.csv")
-# test = pd.read_csv(f"data/test.csv")
-
-# train["text"] = train.text.map(lambda x: remove_URL(x))
-# train["text"] = train.text.map(lambda x: remove_html(x))
-# train["text"] = train.text.map(lambda x: remove_emoji(x))
-# train["text"] = train.text.map(lambda x: remove_punct(x))
-
-# stop = set(stopwords.words("english"))
-
-# train["text"] = train["text"].map(remove_stopwords)
-#train,labels = get_train_label()
-
-
-
-
-# train_size = int(len(train)* 0.8)
-total_train,train_sentences,train_labels,test_sentences,test_labels = get_train_labels_with_test(0.8)
-# train_sentences = np.array(train[:train_size])
-# train_labels = np.array(labels[:train_size])
-
-# test_sentences = np.array(train[train_size:])
-# test_labels = np.array(labels[train_size:])
-# print(total_train.shape,flush=True)
-corpus = create_corpus_tk(total_train) # takes approx. 10 minutes in full or <1 min in not full
+path_to_npy = "twitter-datasets\\NUMPY_TEMPORARY_FILE.npy"
+if(not os.path.isfile(path_to_npy)):
+    total_train,train_sentences,train_labels,test_sentences,test_labels = get_train_labels_with_test(0.85)
+    corpus = create_corpus_tk(total_train) # takes approx. 10 minutes in full or <1 min in not full
+    total_train = list() # let the garbage collector free some RAM
+    with open(path_to_npy,"wb") as f:
+        np.save(f,train_sentences)
+        np.save(f,train_labels)
+        np.save(f,test_sentences)
+        np.save(f,test_labels)
+        np.save(f,np.array(corpus))
+else:
+    print("No need")
+    with open(path_to_npy,"rb") as f:
+        train_sentences = np.load(f)
+        train_labels= np.load(f)
+        test_sentences = np.load(f)
+        test_labels = np.load(f)
+        corpus = np.load(f,allow_pickle=True)
+        corpus = corpus.tolist()
 
 
+print("Number of total tweets ",len(train_sentences), len(test_sentences))
 num_words = len(corpus)
 print(num_words,flush = True)
-max_len = 157 # is average #words per tweet + 2* its standard deviation
+max_len = 280 #max tweet length
+
+# 157 is average #words per tweet + 2* its standard deviation
 
 
 tokenizer = Tokenizer(num_words=num_words)
@@ -166,12 +180,19 @@ test_sequences = tokenizer.texts_to_sequences(test_sentences)
 test_padded = pad_sequences(
     test_sequences, maxlen=max_len, padding="post", truncating="post"
 )
-
-
+test_sequences,train_sequences = None,None
+train_sentences,test_sentences = None,None # let the garbage collector free some RAM
+gc.collect()
 # test_padded
 word_index = tokenizer.word_index
 print("Number of unique words:", len(word_index))
-
+##################################################################################################
+# test_data,indices = load_test_data()
+# sequences = tokenizer.texts_to_sequences(test_data)
+# padded = pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")
+# print("padded is",padded,len(padded[0]),flush=True)
+# assert False
+###################################################################################################
 print("Begin to construct embedding_dict",flush=True)
 dimension = 100
 embedding_dict = {}
@@ -223,15 +244,17 @@ history = model.fit(
     epochs=1, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL
     validation_data=(test_padded, test_labels),
     verbose=1,
-    # use_multiprocessing = True,
+     use_multiprocessing = True,
 )
 
 
-# sequences = tokenizer.texts_to_sequences(test.text)
+#sequences = tokenizer.texts_to_sequences(test.text)
+train_labels,test_labels = None,None # let the garbage collector free some RAM
+gc.collect()
 test_data,indices = load_test_data()
 sequences = tokenizer.texts_to_sequences(test_data)
 padded = pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")
-
+print("padded is",padded,flush=True)
 pred = model.predict(padded)
 pred_int = pred.round().astype("int")
 
@@ -240,7 +263,7 @@ print("type of pred is ",type(pred))
 
 print("assert equation ",indices[len(indices)-1],len(pred))
 try:
-    resFile = open("submission_GLOVE"+"dim"+str(dimension)+"_"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+    resFile = open("submission_GLOVE_FULL_"+"dim"+str(dimension)+"_"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
     resFile.write("Id,Prediction\n")
     for i in range(len(pred_int)):
         predicted = pred_int[i]
