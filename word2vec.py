@@ -128,10 +128,8 @@ def word2vec_self_training_model(tweets_tokenized, vector_size, window_size, epo
                         seed=seed,
                         workers=multiprocessing.cpu_count())
         print("training word2vec model terminated")
-        #save model
-        print("saving model")
+
         model.save('model/model_word2vec')
-        print("saving model terminated")
 
     #fixing model to save space
     vectors = model.wv
@@ -163,10 +161,8 @@ def doc2vec(tweets_tokenized, vector_size, window_size, epochs, seed, get_stored
                     epochs=epochs,
                     workers=multiprocessing.cpu_count())
     print("training doc2vec model terminated")
-
-    print("saving model")
+   
     model.save('model/model_doc2vec')
-    print("saving model terminated")
 
     return model_to_X(model, len(tweets_tokenized))
 
@@ -176,7 +172,7 @@ if __name__ == '__main__':
     #data processing
     full_data = False
     #if want to extract tweets tokenized directly from pickle file
-    use_pickle = False
+    use_pickle = True
     tweets_labels, tweets_tokenized = extract_tweets_data(full=full_data, use_pickle=use_pickle)
 
     #!!! use either model_word2vec or model_google, not both !!!
@@ -187,15 +183,15 @@ if __name__ == '__main__':
     window_size = 10
     epochs = 2
     seed = 1
-    model_word2vec, tweets_cleaned, vector_size = word2vec_self_training_model(tweets_tokenized, 
-                                                                    vector_size, window_size, epochs, seed,
-                                                                    stored_model = get_stored_model)
+    # model_word2vec, tweets_cleaned, vector_size = word2vec_self_training_model(tweets_tokenized, 
+    #                                                                 vector_size, window_size, epochs, seed,
+    #                                                                 stored_model = get_stored_model)
 
     # loading the google model from internet // using google pretrained model, the vector size is fixed at 300
     google_internet = False
     google_use_pickle = False
-    model_google, tweets_cleaned, vector_size = word2vec_google_model(tweets_tokenized, 
-                                                        google_internet, google_use_pickle, full_data)
+    # model_google, tweets_cleaned, vector_size = word2vec_google_model(tweets_tokenized, 
+    #                                                     google_internet, google_use_pickle, full_data)
 
 
     #Tweets to vectors
@@ -203,20 +199,19 @@ if __name__ == '__main__':
     doc2vec_epochs = 2
     #use distributed memory = 1, bag-of-words = 0 see paper https://arxiv.org/pdf/1405.4053v2.pdf
     PV_DM = 1
-    get_stored_model_doc2vec = False   
+    get_stored_model_doc2vec = True
     X = doc2vec(tweets_tokenized, vector_size, window_size, doc2vec_epochs, seed, 
                 get_stored_model = get_stored_model_doc2vec,PV_DM = PV_DM)
 
-    Y = np.array(tweets_labels).reshape((-1,1))
-    
-    print(X.shape)
-    print(Y.shape)
+    y = np.array(tweets_labels)
 
     with open('data_vectors/x.npy', 'wb') as f1:
         np.save(f1, X)
 
     with open('data_vectors/y.npy', 'wb') as f2:
-        np.save(f2, Y)
+        np.save(f2, y)
+    
+    print("terminated")
 
     
     
