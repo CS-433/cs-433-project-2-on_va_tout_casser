@@ -211,5 +211,12 @@ if __name__ == '__main__':
     
     print(X.shape)
     print(Y.shape)
+
+    with open('data_vectors/x.npy', 'wb') as f1:
+        np.save(f1, X)
+
+    with open('data_vectors/y.npy', 'wb') as f2:
+        np.save(f2, Y)
+
     
     
