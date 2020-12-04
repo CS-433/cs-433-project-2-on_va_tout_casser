@@ -177,25 +177,26 @@ def model_to_X(model, num_samples):
 
 #TODO: explain, https://radimrehurek.com/gensim/models/doc2vec.html
 # from the paper https://arxiv.org/pdf/1405.4053v2.pdf
-def doc2vec(tweets_tokenized, vector_size, window_size, epochs, seed, get_stored_model, PV_DM = 1):
+def doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, epochs, seed, get_stored_model, PV_DM = 1):
     if get_stored_model:
         model = Doc2Vec.load('model/model_doc2vec')
-        return model_to_X(model, len(tweets_tokenized))
+    else:
+        docs = [TaggedDocument(doc, [tag]) for tag, doc in enumerate(tweets_tokenized + tweets_test_tokenized)]
+        print("training doc2vec model...")
+        model =  Doc2Vec(docs,
+                        dm=PV_DM, 
+                        vector_size=vector_size, 
+                        window=window_size, 
+                        seed=seed,
+                        epochs=epochs,
+                        workers=multiprocessing.cpu_count())
+        print("training doc2vec model terminated")
+        model.save('model/model_doc2vec')
 
-    docs = [TaggedDocument(doc, [tag]) for tag, doc in enumerate(tweets_tokenized)]
-    print("training doc2vec model...")
-    model =  Doc2Vec(docs,
-                    dm=PV_DM, 
-                    vector_size=vector_size, 
-                    window=window_size, 
-                    seed=seed,
-                    epochs=epochs,
-                    workers=multiprocessing.cpu_count())
-    print("training doc2vec model terminated")
-   
-    model.save('model/model_doc2vec')
-
-    return model_to_X(model, len(tweets_tokenized))
+    X_total = model_to_X(model, len(tweets_tokenized) + len(tweets_test_tokenized))
+    X = X_total[0: len(tweets_tokenized),:]
+    X_test = X_total[len(tweets_tokenized): len(tweets_test_tokenized),:]
+    return X, X_test 
 
 
 
@@ -221,8 +222,8 @@ if __name__ == '__main__':
     # loading the google model from internet // using google pretrained model, the vector size is fixed at 300
     google_internet = False
     google_use_pickle = False
-    model_google, tweets_cleaned, tweets_test_cleaned, vector_size = word2vec_google_model(tweets_tokenized, tweets_test_tokenized ,
-                                                                                         google_internet, google_use_pickle, full_data)
+    # model_google, tweets_cleaned, tweets_test_cleaned, vector_size = word2vec_google_model(tweets_tokenized, tweets_test_tokenized ,
+    #                                                                                      google_internet, google_use_pickle, full_data)
 
 
     #Tweets to vectors
@@ -231,21 +232,21 @@ if __name__ == '__main__':
     #use distributed memory = 1, bag-of-words = 0 see paper https://arxiv.org/pdf/1405.4053v2.pdf
     PV_DM = 1
     get_stored_model_doc2vec = True
-    # X = doc2vec(tweets_tokenized, vector_size, window_size, doc2vec_epochs, seed, 
-    #             get_stored_model = get_stored_model_doc2vec,PV_DM = PV_DM)
+    X, X_test = doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, doc2vec_epochs, seed, 
+                get_stored_model = get_stored_model_doc2vec,PV_DM = PV_DM)
 
     y = np.array(tweets_labels)
 
-    # with open('data_vectors/x.npy', 'wb') as f1:
-    #     np.save(f1, X)
+    with open('data_vectors/x.npy', 'wb') as f1:
+        np.save(f1, X)
 
-    # with open('data_vectors/y.npy', 'wb') as f2:
-    #     np.save(f2, y)
+    with open('data_vectors/y.npy', 'wb') as f2:
+        np.save(f2, y)
     
-    # with open('dataset/x_test.npy.txt', 'wb') as f3:
-    #     np.save(f3, X_test)
+    with open('dataset/x_test.npy.txt', 'wb') as f3:
+        np.save(f3, X_test)
 
-    print("terminated")
+    print("Task Terminated")
 
     
     
