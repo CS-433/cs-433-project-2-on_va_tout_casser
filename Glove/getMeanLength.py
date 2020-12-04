@@ -6,4 +6,4 @@ with open("C:\\Users\\lucas\\Documents\\cs-433-project-2-on_va_tout_casser\\twit
 a = np.array(a)
 a = np.vectorize(lambda x : len(x))(a)
 
-print(np.mean(a),np.std(a),np.mean(a)+ 2* np.std(a))
+print(np.mean(a),np.std(a),np.mean(a)+ 2* np.std(a),max(a))

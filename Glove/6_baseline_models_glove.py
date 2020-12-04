@@ -5,10 +5,12 @@ and unzip it in the twitter-datasets folder !
 PS: you need quite a lot of RAM :)
 
 """
-
-
-
-
+full = False
+max_len = 280  # max # of words in a 280 character tweet
+dimension = 25 # choose one of 25,50, 100 or 200
+batch_size = 16
+epochs = 5
+activation_function = "sigmoid"
 
 
 from IPython.core.debugger import set_trace
@@ -80,12 +82,16 @@ def create_corpus_tk(train):
         words = [word.lower() for word in word_tokenize(text)]
         corpus.append(words)
     return corpus
-def get_train_labels_with_test(train_percentage):
+def get_train_labels_with_test(train_percentage,full):
     path = "twitter-datasets\\"
     #train_sentences,train_labels,test_sentences,test_labels = list(),list(),list(),list()
+    if(full):
+        full = "_full"
+    else:
+        full = ""
     train = list()
     labels = list()
-    with open(path + "train_pos_full.txt",encoding='utf-8',errors="namereplace") as f :
+    with open(path + "train_pos"+full+".txt",encoding='utf-8',errors="namereplace") as f :
         for pos_line in f:
             train.append(pos_line.replace("\n"," "))
             labels.append(1)
@@ -96,7 +102,7 @@ def get_train_labels_with_test(train_percentage):
     test_labels = labels[train_size_pos:]
     trained_size = len(train)
     labels = list()
-    with open(path + "train_neg_full.txt",encoding='utf-8',errors="namereplace") as f :
+    with open(path + "train_neg"+full+".txt",encoding='utf-8',errors="namereplace") as f :
         for neg_line in f:
             train.append(neg_line.replace("\n"," "))
             labels.append(0)
@@ -137,16 +143,18 @@ def load_test_data():
 plt.style.use(style="seaborn")
 
 path_to_npy = "twitter-datasets\\NUMPY_TEMPORARY_FILE.npy"
-if(not os.path.isfile(path_to_npy)):
-    total_train,train_sentences,train_labels,test_sentences,test_labels = get_train_labels_with_test(0.85)
+if(not os.path.isfile(path_to_npy) or full == False):
+    total_train,train_sentences,train_labels,test_sentences,test_labels = get_train_labels_with_test(0.85,full)
     corpus = create_corpus_tk(total_train) # takes approx. 10 minutes in full or <1 min in not full
     total_train = list() # let the garbage collector free some RAM
-    with open(path_to_npy,"wb") as f:
-        np.save(f,train_sentences)
-        np.save(f,train_labels)
-        np.save(f,test_sentences)
-        np.save(f,test_labels)
-        np.save(f,np.array(corpus))
+    gc.collect()
+    if(full):
+        with open(path_to_npy,"wb") as f:
+            np.save(f,train_sentences)
+            np.save(f,train_labels)
+            np.save(f,test_sentences)
+            np.save(f,test_labels)
+            np.save(f,np.array(corpus))
 else:
     print("No need")
     with open(path_to_npy,"rb") as f:
@@ -161,7 +169,6 @@ else:
 print("Number of total tweets ",len(train_sentences), len(test_sentences))
 num_words = len(corpus)
 print(num_words,flush = True)
-max_len = 280 #max tweet length
 
 # 157 is average #words per tweet + 2* its standard deviation
 
@@ -180,6 +187,8 @@ test_sequences = tokenizer.texts_to_sequences(test_sentences)
 test_padded = pad_sequences(
     test_sequences, maxlen=max_len, padding="post", truncating="post"
 )
+print(train_padded)
+assert False
 test_sequences,train_sequences = None,None
 train_sentences,test_sentences = None,None # let the garbage collector free some RAM
 gc.collect()
@@ -194,7 +203,7 @@ print("Number of unique words:", len(word_index))
 # assert False
 ###################################################################################################
 print("Begin to construct embedding_dict",flush=True)
-dimension = 100
+
 embedding_dict = {}
 path = "twitter-datasets\\"
 with open(path+"glove.twitter.27B\\glove.twitter.27B."+str(dimension)+"d.txt", "r",encoding="utf-8",errors="namereplace") as f:
@@ -215,10 +224,10 @@ for word, i in word_index.items():
         if emb_vec is not None:
             embedding_matrix[i] = emb_vec
 
-# embedding_matrix
-# word_index["reason"]
-# embedding_dict.get("reason")
-# (embedding_matrix[696] == embedding_dict.get("reason")).all()
+#embedding_matrix
+#word_index["reason"]
+#embedding_dict.get("reason")
+#(embedding_matrix[696] == embedding_dict.get("reason")).all()
 model = Sequential()
 
 model.add(
@@ -231,7 +240,7 @@ model.add(
     )
 )
 model.add(LSTM(dimension, dropout=0.1))
-model.add(Dense(1,activation="relu")) # try with relu
+model.add(Dense(1,activation=activation_function)) # try with relu
 #model.add(Dense(1, activation="sigmoid"))
 
 
@@ -242,10 +251,10 @@ model.compile(loss="binary_crossentropy", optimizer=optimizer, metrics=["accurac
 history = model.fit(
     train_padded,
     train_labels,
-    epochs=2, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL VS 4H IN FULL
+    epochs=epochs, # TODO : INCREASE EPOCH, IT IS NOW LOW FOR TESTING PURPOSES - ~ 9 MIN / EPOCH IN NON FULL VS 4H IN FULL
     validation_data=(test_padded, test_labels),
     verbose=1,
-    batch_size = 16,
+    batch_size = batch_size,
      use_multiprocessing = False,
 )
 
@@ -254,8 +263,10 @@ history = model.fit(
 train_labels,test_labels = None,None # let the garbage collector free some RAM
 gc.collect()
 test_data,indices = load_test_data()
+
 sequences = tokenizer.texts_to_sequences(test_data)
 padded = pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")
+
 print("padded is",padded,flush=True)
 pred = model.predict(padded)
 pred_int = pred.round().astype("int")
@@ -265,7 +276,7 @@ print("type of pred is ",type(pred))
 
 print("assert equation ",indices[len(indices)-1],len(pred))
 try:
-    resFile = open("submission_GLOVE_FULL_"+"dim"+str(dimension)+"_"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+    resFile = open("submission_GLOVE_FULL_"+str(full)+"dim"+str(dimension)+"_"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
     resFile.write("Id,Prediction\n")
     for i in range(len(pred_int)):
         predicted = pred_int[i]
