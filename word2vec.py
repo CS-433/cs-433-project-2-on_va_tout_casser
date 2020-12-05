@@ -1,13 +1,14 @@
-# import word2vec
 import nltk 
 nltk.download('wordnet')
 import string
 import gensim
 import pickle
+import gensim.models.doc2vec as qwe
 import multiprocessing
 from gensim.models.word2vec import Word2Vec
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 import numpy as np
+# from gensim.models.deprecated.doc2vec import FAST_VERSION
 
 path = 'dataset/'
 test_path = path + "test_data.txt"
@@ -44,7 +45,7 @@ def tweets_to_tokens(path, label):
             tweets_tokenized.append(words)
             tweets_labels.append(label)
             count += 1
-            if(count % 2000 == 0):
+            if(count % 10000 == 0):
                 print(" {} tweets extracted".format(count))
     return tweets_labels, tweets_tokenized
         
@@ -67,8 +68,8 @@ def extract_tweets_data(full, use_pickle):
     
     print("extracting tweets_data...")
     tweets_labels_pos, tweets_tokenized_pos = tweets_to_tokens(pos_path, 1)
-    tweets_labels_neg, tweets_tokenized_neg = tweets_to_tokens(neg_path, 0)
-    _, tweets_test_tokenized = tweets_to_tokens(test_path, 2) 
+    tweets_labels_neg, tweets_tokenized_neg = tweets_to_tokens(neg_path, -1)
+    _, tweets_test_tokenized = tweets_to_tokens(test_path, 0) 
     print("extracting tweets terminated")
 
     tweets_tokenized = tweets_tokenized_pos + tweets_tokenized_neg
@@ -81,9 +82,6 @@ def extract_tweets_data(full, use_pickle):
     with open(test_pickle_path, "wb") as fp3:
         pickle.dump(tweets_test_tokenized, fp3)
 
-    print(len(tweets_labels))
-    print(len(tweets_tokenized))
-    print(len(tweets_test_tokenized))
     return tweets_labels, tweets_tokenized, tweets_test_tokenized
     
 
@@ -99,7 +97,7 @@ def clean_tweets_tokenized(tweets_tokenized, intersection):
         count += 1
     return tweets_cleaned
     
-def word2vec_google_model(tweets_tokenized, tweets_test_tokenized, google_internet, google_use_pickle, full):
+def word2vec_google_model(tweets_tokenized, tweets_test_tokenized, vocab, google_internet, google_use_pickle, full):
     #use per-trained word2vec model of google: 300 features per word: 3 millions words
     print("Google model: Loading the model...")
     if google_internet:
@@ -127,11 +125,9 @@ def word2vec_google_model(tweets_tokenized, tweets_test_tokenized, google_intern
     print("Google model: removing unknown words ...")  
     
     # TODO : change vocab to have the same voc after line_to_tokenized
-    with open('vocab.pkl', 'rb') as f:
-        voc_tweets = set(pickle.load(f))
     
     google_voc = set(model.vocab.keys())
-    intersection = (voc_tweets & google_voc)
+    intersection = (vocab & google_voc)
     tweets_cleaned = clean_tweets_tokenized(tweets_tokenized, intersection)
     tweets_test_cleaned = clean_tweets_tokenized(tweets_test_tokenized, intersection)
     
@@ -183,6 +179,7 @@ def doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, e
     else:
         docs = [TaggedDocument(doc, [tag]) for tag, doc in enumerate(tweets_tokenized + tweets_test_tokenized)]
         print("training doc2vec model...")
+
         model =  Doc2Vec(docs,
                         dm=PV_DM, 
                         vector_size=vector_size, 
@@ -195,10 +192,26 @@ def doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, e
 
     X_total = model_to_X(model, len(tweets_tokenized) + len(tweets_test_tokenized))
     X = X_total[0: len(tweets_tokenized),:]
-    X_test = X_total[len(tweets_tokenized): len(tweets_test_tokenized),:]
+    X_test = X_total[len(tweets_tokenized):len(tweets_tokenized)+ len(tweets_test_tokenized),:]
     return X, X_test 
 
-
+def get_vocab_and_max_length(tweets_tokenized, vocab_stored):
+    vocab = set()
+    if vocab_stored:
+        with open('dataset/vocab.pkl', 'rb') as f:
+            vocab = set(pickle.load(f))
+    else: 
+        flattened = [item for sublist in tweets_tokenized for item in sublist]
+        print(type(flattened[0]))
+        vocab = set(flattened)
+        flattened = []
+    max_len = 0
+    for tweet in tweets_tokenized:
+        if len(tweet) > max_len:
+            max_len = len(tweet)
+    with open('dataset/vocab.pkl', "wb") as fp2:
+        pickle.dump(vocab, fp2)
+    return vocab, max_len
 
 if __name__ == '__main__':
     #data processing
@@ -207,11 +220,15 @@ if __name__ == '__main__':
     use_pickle = True
     tweets_labels, tweets_tokenized, tweets_test_tokenized = extract_tweets_data(full=full_data, use_pickle=use_pickle)
 
+
+    vocab_from_storage = False
+    vocab, max_len = get_vocab_and_max_length((tweets_tokenized + tweets_test_tokenized), vocab_from_storage)
+    print(len(vocab))
     #!!! use either model_word2vec or model_google, not both !!!
     #Word2vec
     get_stored_model = False
     #word2vec parameters
-    vector_size = 5
+    vector_size = 50
     window_size = 10
     epochs = 2
     seed = 1
@@ -222,18 +239,18 @@ if __name__ == '__main__':
     # loading the google model from internet // using google pretrained model, the vector size is fixed at 300
     google_internet = False
     google_use_pickle = False
-    # model_google, tweets_cleaned, tweets_test_cleaned, vector_size = word2vec_google_model(tweets_tokenized, tweets_test_tokenized ,
-    #                                                                                      google_internet, google_use_pickle, full_data)
+    model_google, tweets_cleaned, tweets_test_cleaned, vector_size = word2vec_google_model(tweets_tokenized, tweets_test_tokenized, vocab,
+                                                                                         google_internet, google_use_pickle, full_data)
 
 
     #Tweets to vectors
     #1. using doc2vec !!! if so, comment word2vec model computation (line above)
-    doc2vec_epochs = 2
+    doc2vec_epochs = 10
     #use distributed memory = 1, bag-of-words = 0 see paper https://arxiv.org/pdf/1405.4053v2.pdf
     PV_DM = 1
-    get_stored_model_doc2vec = True
-    X, X_test = doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, doc2vec_epochs, seed, 
-                get_stored_model = get_stored_model_doc2vec,PV_DM = PV_DM)
+    get_stored_model_doc2vec = False
+    # X, X_test = doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, doc2vec_epochs, seed, 
+    #             get_stored_model = get_stored_model_doc2vec,PV_DM = PV_DM)
 
     y = np.array(tweets_labels)
 
