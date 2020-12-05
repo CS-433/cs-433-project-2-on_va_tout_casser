@@ -6,7 +6,7 @@ PS: you need quite a lot of RAM :)
 
 """
 full = False
-max_len = 280  # max # of words in a 280 character tweet
+max_len = 128  # max # of words in a the tweets (result of a linear search)
 dimension = 25 # choose one of 25,50, 100 or 200
 batch_size = 16
 epochs = 5
@@ -187,8 +187,7 @@ test_sequences = tokenizer.texts_to_sequences(test_sentences)
 test_padded = pad_sequences(
     test_sequences, maxlen=max_len, padding="post", truncating="post"
 )
-print(train_padded)
-assert False
+
 test_sequences,train_sequences = None,None
 train_sentences,test_sentences = None,None # let the garbage collector free some RAM
 gc.collect()
