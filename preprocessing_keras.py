@@ -153,10 +153,9 @@ class TEXT_MODEL(tf.keras.Model):
         
         self.dense_1 = layers.Dense(units=dnn_units, activation="relu")
         self.dropout = layers.Dropout(rate=dropout_rate)
+        self.last_dense = layers.Dense(units=1,
+                                           activation="sigmoid")
 
-        self.last_dense = layers.Dense(units=1, activation="sigmoid")
-        
-    
     def call(self, inputs, training):
         l = self.embedding(inputs)
         l_1 = self.cnn_layer1(l) 
@@ -211,6 +210,7 @@ if __name__ == '__main__':
     EMB_DIM = 200
     CNN_FILTERS = 100
     DNN_UNITS = 256
+    OUTPUT_CLASSES = 2
 
     DROPOUT_RATE = 0.2
 
@@ -224,9 +224,9 @@ if __name__ == '__main__':
                         dropout_rate=DROPOUT_RATE)
 
 
-    text_model.compile(loss="sparse_categorical_crossentropy",
+    text_model.compile(loss="binary_crossentropy",
                        optimizer="adam",
-                       metrics=["sparse_categorical_accuracy"])
+                       metrics=["accuracy"])
     
 
     text_model.fit(train_data, epochs=NB_EPOCHS)
