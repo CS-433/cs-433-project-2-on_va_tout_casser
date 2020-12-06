@@ -1,19 +1,12 @@
-import os
-import shutil
 import numpy as np
-import nltk 
-nltk.download('wordnet')
 import string
-import gensim
 import pickle
 import tensorflow as tf
 import tensorflow_hub as hub
-import tensorflow_text as text
-from official.nlp import optimization  # to create AdamW optimizer
+# from official.nlp import optimization  # to create AdamW optimizer
 from tensorflow.keras import layers
 import bert
 import random
-import math
 from datetime import datetime
 
 
