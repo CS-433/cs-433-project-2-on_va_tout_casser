@@ -14,36 +14,24 @@ from tensorflow.keras import layers
 import bert
 import random
 import math
+from datetime import datetime
 
 
 import matplotlib.pyplot as plt
 
 tf.get_logger().setLevel('ERROR')
 
-
-
-def preprocessing(train_path_pos,train_path_neg, test_path, batch_size, validation_split, seed):
-    print()
-
-def bert_encoder():
-    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string)
-    preprocessor = hub.KerasLayer(
-        "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/1")
-    encoder_inputs = preprocessor(text_input)
-    encoder = hub.KerasLayer(
-        "https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/3",
-    trainable=True)
-
-    outputs = encoder(encoder_inputs)
-    pooled_output = outputs["pooled_output"]      # [batch_size, 768].
-    sequence_output = outputs["sequence_output"]  # [batch_size, seq_length, 768].
-
 path = 'dataset/'
 test_path = path + "test_data.txt"
 test_pickle_path = path + 'test_pickle_tweets.txt'
-google_vector_size = 300
 
-def line_cleaned(line):
+
+def line_cleaned(line, label):
+    #test data
+    if label == 5:
+        sep = line.find(",")
+        line = line[sep+1:]
+    line = line.replace("\n","")
     line = line.replace('<user>','')
     line = line.replace('<url>','')
     line = "".join([char for char in line if char not in string.punctuation])
@@ -57,6 +45,7 @@ def set_data_path(full):
     else:
         return path+'train_neg.txt',  path+'train_pos.txt', path+'train_pickle_labels_bert.txt',path+'train_pickle_tweets_bert.txt'
 
+
 def tweets_to_clean_tweets(path, label):
     count = 0
     tweets_labels = []
@@ -64,7 +53,7 @@ def tweets_to_clean_tweets(path, label):
     print("extracting {} dataset...".format(path))
     with open(path) as f:
         for line in f:
-            tweets_cleaned.append(line_cleaned(line))
+            tweets_cleaned.append(line_cleaned(line, label))
             tweets_labels.append(label)
             count += 1
             if(count % 10000 == 0):
@@ -91,7 +80,7 @@ def clean_tweets(full, use_pickle):
     print("extracting tweets_data...")
     tweets_labels_pos, tweets_tokenized_pos = tweets_to_clean_tweets(pos_path, 1)
     tweets_labels_neg, tweets_tokenized_neg = tweets_to_clean_tweets(neg_path, 0) #here = 0 !!!
-    _, tweets_test_cleaned = tweets_to_clean_tweets(test_path, 2) 
+    _, tweets_test_cleaned = tweets_to_clean_tweets(test_path, 5) 
     print("extracting tweets terminated")
 
     tweets_cleaned = tweets_tokenized_pos + tweets_tokenized_neg
@@ -109,7 +98,18 @@ def clean_tweets(full, use_pickle):
 def tokenize_tweet(tokenizer, tweets):
     return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(tweets))
 
-def tokenize_tweets(tweets, tweets_test):
+def tokenize_tweets(tweets, tweets_test, use_pickle):
+    if use_pickle:
+        with open(path + "tokenized_full.txt", "rb") as fp1:
+            tokenized = pickle.load(fp1)
+        with open(path + "tokenized_test_full.txt", "rb") as fp2:
+            tokenized_test = pickle.load(fp2)
+        with open(path + "len_tokenized_full.txt", "rb") as fp3:
+            length = pickle.load(fp3)
+        
+        return tokenized, tokenized_test, length
+
+
     BertTokenizer = bert.bert_tokenization.FullTokenizer
     bert_layer = hub.KerasLayer("https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/1",
                                   trainable=False)
@@ -119,6 +119,14 @@ def tokenize_tweets(tweets, tweets_test):
 
     tokenized = [tokenize_tweet(tokenizer, tweet) for tweet in tweets]
     tokenized_test = [tokenize_tweet(tokenizer, tweet) for tweet in tweets_test]
+
+    with open(path + "tokenized_full.txt", "wb") as fp1:
+        pickle.dump(tokenized, fp1)
+    with open(path + "tokenized_test_full.txt", "wb") as fp2:
+        pickle.dump(tokenized_test, fp2)
+    with open(path + "len_tokenized_full.txt", "wb") as fp3:
+        pickle.dump(len(tokenizer.vocab), fp3)
+
     return tokenized, tokenized_test, len(tokenizer.vocab)
     
     
@@ -181,40 +189,47 @@ if __name__ == '__main__':
 
     # tweets = np.array(tweets_cleaned)
     y = np.array(tweets_labels)
+   
     # tweets_test = np.array(tweets_test_cleaned)
-
-    token_tweets, token_tweets_test, len_tokenizer_vocab = tokenize_tweets(tweets_cleaned, tweets_test_cleaned)
+    use_pickle = True
+    token_tweets, token_tweets_test, len_tokenizer_vocab = tokenize_tweets(tweets_cleaned, tweets_test_cleaned, use_pickle)
 
     tweets_with_len = [[tweet, y[i], len(tweet)]for i, tweet in enumerate(token_tweets)]
-    random.shuffle(tweets_with_len)
     #sort by length
+    print("tokenized terminated")
     tweets_with_len.sort(key=lambda x: x[2])
 
     #remove length attribute
     sorted_tweets_labels = [(tweet_lab[0], tweet_lab[1]) for tweet_lab in tweets_with_len]
 
-    #transform in tensor dataset
-    processed_dataset = tf.data.Dataset.from_generator(lambda: sorted_tweets_labels, output_types=(tf.int32, tf.int32))
+    tweets_final, labels_tuple = zip(*sorted_tweets_labels)
 
-    batch_size = 32
-    batched_dataset = processed_dataset.padded_batch(batch_size, padded_shapes=((None, ), ()))
+    X = tf.keras.preprocessing.sequence.pad_sequences(tweets_final)
+    y = np.asarray(labels_tuple)
+    X_test_final = tf.keras.preprocessing.sequence.pad_sequences(token_tweets_test, maxlen=X.shape[1])
 
-    #split data to get 10% of test data
-    total_batch = math.ceil(len(sorted_tweets_labels) / batch_size)
-    test_batch = total_batch // 8
-    batched_dataset.shuffle(total_batch)
-    test_data = batched_dataset.take(test_batch)
-    train_data = batched_dataset.skip(test_batch)
+    index_list = list(range(y.shape[0]))
+    random.seed(4)
+    random.shuffle(index_list)
+    y = y[index_list]
+    X = X[index_list,:]
 
+    validation_percentage = 0.85
+    break_point = int(y.shape[0] * validation_percentage)
+    X_train = X[0:break_point,:]
+    X_validation = X[break_point:,:]
+    y_train = y[0:break_point]
+    y_validation = y[break_point:]
+    
+    
+    
+    batch_size = 64#64
     VOCAB_LENGTH = len_tokenizer_vocab
-    EMB_DIM = 200
+    EMB_DIM = 25#200
     CNN_FILTERS = 100
     DNN_UNITS = 256
-    OUTPUT_CLASSES = 2
-
     DROPOUT_RATE = 0.2
-
-    NB_EPOCHS = 5
+    NB_EPOCHS = 10
 
     text_model = TEXT_MODEL(vocabulary_size=VOCAB_LENGTH,
                         embedding_dimensions=EMB_DIM,
@@ -229,19 +244,44 @@ if __name__ == '__main__':
                        metrics=["accuracy"])
     
 
-    text_model.fit(train_data, epochs=NB_EPOCHS)
 
-    with open("bert model", "wb") as fp5:
-        pickle.dump(text_model, fp5)
-    results = text_model.evaluate(test_data)
-    print(results)
-    # print("tokenizing...")
-    # bert_preprocess_model = hub.KerasLayer('https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/1')
+    text_model.fit(X_train,y_train,  
+                    validation_data=(X_validation, y_validation),
+                    batch_size = batch_size,
+                    epochs=NB_EPOCHS)
+    text_model.save('classifiers/bert')
 
+    pred = text_model.predict(X_test_final)
+    pred_int = pred.round().astype("int")
 
-    # tweets_together = list(tweets)+ list(tweets_test)
+    try:
+        resFile = open("sub_BERT_"+"_batch_size_"+str(batch_size)+"_epochs_"+str(NB_EPOCHS)+"___"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+        resFile.write("Id,Prediction\n")
+        for i in range(len(pred_int)):
+            predicted = pred_int[i]
+            if(predicted == 0):
+                predicted = -1
+            elif(predicted != 1):
+               print("Prediction type error on ",predicted)
+            resFile.write(str(i + 1)+","+str(int(predicted))+"\n")
+    except :
+        print("Error encountered, try again")
+    finally:
+        resFile.close()
 
-    # tweets_preprocessed = bert_preprocess_model(tweets_together)
+    
+    
 
-    # print(tweets_preprocessed.shape)
+    # try:
+    #     resFile = open("submission_BERT_"+"dim"+str(EMB_DIM)+"_"+".csv","w")
+    #     resFile.write("Id,Prediction\n")
+    #     for i in range(X_test_final.shape[0]):
+    #         pred = text_model.predict(X_test_final[i,:])
+    #         if(pred == 0):
+    #             pred = -1
+    #         resFile.write(str(i + 1) + "," + str(pred) + "\n")
+    # finally:
+    #     resFile.close()
+
+  
     print("terminated")
