@@ -3,13 +3,11 @@ import string
 import pickle
 import tensorflow as tf
 import tensorflow_hub as hub
-# from official.nlp import optimization  # to create AdamW optimizer
+from official.nlp import optimization  # to create AdamW optimizer
 from tensorflow.keras import layers
 import bert
 import random
 from datetime import datetime
-
-
 import matplotlib.pyplot as plt
 
 tf.get_logger().setLevel('ERROR')
@@ -91,17 +89,20 @@ def clean_tweets(full, use_pickle):
 def tokenize_tweet(tokenizer, tweets):
     return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(tweets))
 
-def tokenize_tweets(tweets, tweets_test, use_pickle):
+def tokenize_tweets(tweets, tweets_test, use_pickle, full):
+    if full:
+        end_name = "_full.txt"
+    else: 
+        end_name = ".txt"
     if use_pickle:
-        with open(path + "tokenized_full.txt", "rb") as fp1:
+        with open(path + "tokenized"+ end_name, "rb") as fp1:
             tokenized = pickle.load(fp1)
-        with open(path + "tokenized_test_full.txt", "rb") as fp2:
+        with open(path + "tokenized_test"+ end_name, "rb") as fp2:
             tokenized_test = pickle.load(fp2)
-        with open(path + "len_tokenized_full.txt", "rb") as fp3:
+        with open(path + "len_tokenized"+ end_name, "rb") as fp3:
             length = pickle.load(fp3)
         
         return tokenized, tokenized_test, length
-
 
     BertTokenizer = bert.bert_tokenization.FullTokenizer
     bert_layer = hub.KerasLayer("https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/1",
@@ -113,11 +114,11 @@ def tokenize_tweets(tweets, tweets_test, use_pickle):
     tokenized = [tokenize_tweet(tokenizer, tweet) for tweet in tweets]
     tokenized_test = [tokenize_tweet(tokenizer, tweet) for tweet in tweets_test]
 
-    with open(path + "tokenized_full.txt", "wb") as fp1:
+    with open(path + "tokenized"+ end_name, "wb") as fp1:
         pickle.dump(tokenized, fp1)
-    with open(path + "tokenized_test_full.txt", "wb") as fp2:
+    with open(path + "tokenized_test"+ end_name, "wb") as fp2:
         pickle.dump(tokenized_test, fp2)
-    with open(path + "len_tokenized_full.txt", "wb") as fp3:
+    with open(path + "len_tokenized"+ end_name, "wb") as fp3:
         pickle.dump(len(tokenizer.vocab), fp3)
 
     return tokenized, tokenized_test, len(tokenizer.vocab)
@@ -138,6 +139,7 @@ class TEXT_MODEL(tf.keras.Model):
         
         self.embedding = layers.Embedding(vocabulary_size,
                                           embedding_dimensions)
+        # self.lstm = layers.LSTM(embedding_dimensions, return_sequences=True)
         self.cnn_layer1 = layers.Conv1D(filters=cnn_filters,
                                         kernel_size=2,
                                         padding="valid",
@@ -154,11 +156,11 @@ class TEXT_MODEL(tf.keras.Model):
         
         self.dense_1 = layers.Dense(units=dnn_units, activation="relu")
         self.dropout = layers.Dropout(rate=dropout_rate)
-        self.last_dense = layers.Dense(units=1,
-                                           activation="sigmoid")
+        self.last_dense = layers.Dense(units=1, activation="sigmoid")
 
     def call(self, inputs, training):
         l = self.embedding(inputs)
+        # l = self.lstm(l)
         l_1 = self.cnn_layer1(l) 
         l_1 = self.pool(l_1) 
         l_2 = self.cnn_layer2(l) 
@@ -175,17 +177,13 @@ class TEXT_MODEL(tf.keras.Model):
 
 
 if __name__ == '__main__':
-    full_data = True
+    full_data = False
     use_pickle = True
     tweets_labels, tweets_cleaned, tweets_test_cleaned = clean_tweets(full=full_data, use_pickle=use_pickle)
     
-
-    # tweets = np.array(tweets_cleaned)
     y = np.array(tweets_labels)
    
-    # tweets_test = np.array(tweets_test_cleaned)
-    use_pickle = True
-    token_tweets, token_tweets_test, len_tokenizer_vocab = tokenize_tweets(tweets_cleaned, tweets_test_cleaned, use_pickle)
+    token_tweets, token_tweets_test, len_tokenizer_vocab = tokenize_tweets(tweets_cleaned, tweets_test_cleaned, use_pickle, full_data)
 
     tweets_with_len = [[tweet, y[i], len(tweet)]for i, tweet in enumerate(token_tweets)]
     #sort by length
@@ -202,12 +200,12 @@ if __name__ == '__main__':
     X_test_final = tf.keras.preprocessing.sequence.pad_sequences(token_tweets_test, maxlen=X.shape[1])
 
     index_list = list(range(y.shape[0]))
-    random.seed(4)
+    random.seed(2)
     random.shuffle(index_list)
     y = y[index_list]
     X = X[index_list,:]
 
-    validation_percentage = 0.85
+    validation_percentage = 0.90
     break_point = int(y.shape[0] * validation_percentage)
     X_train = X[0:break_point,:]
     X_validation = X[break_point:,:]
@@ -216,13 +214,14 @@ if __name__ == '__main__':
     
     
     
-    batch_size = 64#64
+    batch_size = 200#64
     VOCAB_LENGTH = len_tokenizer_vocab
-    EMB_DIM = 25#200
-    CNN_FILTERS = 100
-    DNN_UNITS = 256
+    EMB_DIM = 10#200
+    CNN_FILTERS = 5
+    DNN_UNITS = 5
     DROPOUT_RATE = 0.2
-    NB_EPOCHS = 10
+    NB_EPOCHS = 4
+    
 
     text_model = TEXT_MODEL(vocabulary_size=VOCAB_LENGTH,
                         embedding_dimensions=EMB_DIM,
@@ -232,23 +231,55 @@ if __name__ == '__main__':
                         dropout_rate=DROPOUT_RATE)
 
 
-    text_model.compile(loss="binary_crossentropy",
+    loss_chosen="binary_crossentropy"
+    text_model.compile(loss=loss_chosen,
                        optimizer="adam",
-                       metrics=["accuracy"])
+                       metrics=tf.metrics.BinaryAccuracy())
     
 
 
-    text_model.fit(X_train,y_train,  
+    history = text_model.fit(X_train,y_train,  
                     validation_data=(X_validation, y_validation),
                     batch_size = batch_size,
-                    epochs=NB_EPOCHS)
+                    epochs=NB_EPOCHS,
+                    use_multiprocessing = False)
     text_model.save('classifiers/bert')
+
+    history_dict = history.history
+
+    acc = history_dict['binary_accuracy']
+    val_acc = history_dict['val_binary_accuracy']
+    loss = history_dict['loss']
+    val_loss = history_dict['val_loss']
+
+    epochs = range(1, len(acc) + 1)
+    fig = plt.figure(figsize=(10, 6))
+    fig.tight_layout()
+
+    plt.subplot(2, 1, 1)
+    # "bo" is for "blue dot"
+    plt.plot(epochs, loss, 'r', label='Training loss')
+    # b is for "solid blue line"
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title('Training and validation loss')
+    # plt.xlabel('Epochs')
+    plt.ylabel('Loss'+ loss_chosen)
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(epochs, acc, 'r', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend(loc='lower right')
+    plt.savefig('foo.png')
 
     pred = text_model.predict(X_test_final)
     pred_int = pred.round().astype("int")
 
     try:
-        resFile = open("sub_BERT_"+"_batch_size_"+str(batch_size)+"_epochs_"+str(NB_EPOCHS)+"___"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
+        resFile = open("sub_BERT_"+"_batch_size_"+str(batch_size)+"_epochs_"+str(NB_EPOCHS)+"CNN" + str(CNN_FILTERS) + "DNN" + str(DNN_UNITS) + "DROP" + str(DROPOUT_RATE)+"___"+str(datetime.now()).replace(" ","__").replace(":","-")+".csv","w")
         resFile.write("Id,Prediction\n")
         for i in range(len(pred_int)):
             predicted = pred_int[i]
@@ -260,21 +291,5 @@ if __name__ == '__main__':
     except :
         print("Error encountered, try again")
     finally:
-        resFile.close()
-
-    
-    
-
-    # try:
-    #     resFile = open("submission_BERT_"+"dim"+str(EMB_DIM)+"_"+".csv","w")
-    #     resFile.write("Id,Prediction\n")
-    #     for i in range(X_test_final.shape[0]):
-    #         pred = text_model.predict(X_test_final[i,:])
-    #         if(pred == 0):
-    #             pred = -1
-    #         resFile.write(str(i + 1) + "," + str(pred) + "\n")
-    # finally:
-    #     resFile.close()
-
-  
+        resFile.close()  
     print("terminated")
