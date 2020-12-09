@@ -5,6 +5,7 @@ import string
 import re
 from spellchecker import SpellChecker
 from sklearn.feature_extraction.text import TfidfVectorizer
+import time
 
 
 ################################################## Lists of useful informations ######################################################
@@ -41,8 +42,8 @@ twitter_abbreviations = [('ofc', 'of course'), ('lmao', 'laughing my ass off', '
             ('sry', 'sorry'), ('sup', 'what is up'), ('hbu', 'how about you'), ('stfu', 'shut the fuck up'),
             ('ty', 'thank you'), ('tyvm', 'thank you very much'), ('thx', 'thank you'), ('tbh', 'to be honest'),
             ('thot', 'that whore over there'), ('totes', 'totally'), ('wbu', 'what about you'), ('wtf','what the fuck'),
-            ('x', 'kiss'), ('xd', 'smile', 'haha'), ('<3', 'kiss'), ('pic', 'picture'), ('2', 'to'), ('b4', 'before'),
-            ('xoxo', 'kiss')]
+            ('x', 'kiss'), ('xd', 'smile', 'haha'), ('<3', 'heart'), ('pic', 'picture'), ('2', 'to'), ('b4', 'before'),
+            ('xoxo', 'kiss'), (':)', 'happy'), (':(', 'sad'), ('4', 'for')]
 
 
 twitter_obvious_mistakes = [('dat', 'that'), ('dis', 'this'), ('wud', 'would'), ('da', 'the'), ('enuf', 'enough'),
@@ -50,7 +51,8 @@ twitter_obvious_mistakes = [('dat', 'that'), ('dis', 'this'), ('wud', 'would'), 
                            ('luv', 'love'), ('ur', 'your'), ('wat', 'what'), ('wut', 'what'), ('y', 'why'), ('ya', 'you'), ('yea', 'yes'), 
                            ('dont', 'do not'), ('cant', 'cannot'), ('wont', 'will not'), ('aint', 'am not'), ('isnt', 'is not'),
                             ('doesnt', 'does not'), ('hasnt', 'has not'), ('havent', 'have not'), ('id', 'i would'),
-                            ('theres', 'there is'), ('thats', 'that is'), ('wheres', 'where is'), ('werent', 'were not')]
+                            ('theres', 'there is'), ('thats', 'that is'), ('wheres', 'where is'), ('werent', 'were not'), ('tho', 'though'),
+                           ('doe', 'though'), ('altho', 'though'), ('moar', 'more'), ('fren', 'friend'), ('dem', 'them')]
 
 
 contractions = {
@@ -176,13 +178,19 @@ contractions = {
 }
 
 
-onomatopees = [('pf', 'sigh'), ('mwah', 'kiss'), ('muah', 'kiss')]
+onomatopees = [('pf', 'sigh'), ('mwah', 'kiss'), ('muah', 'kiss'), ('uh', 'uh'), ('tsk', 'tsk'), ('hm', 'hm'), ('mhm', 'mhm'), ('wow', 'wow')]
 
 
 laughs = ['hah', 'heh', 'hih', 'huh', 'hoh', 'jaj']
 
 
 stopword_eg = nltk.corpus.stopwords.words('english')
+
+
+twitter_stopwords = ['<user', '<url', 'rrrpp', 'rt', 'mspld', 'exclmt', 'abbrvt']
+
+
+stopword_eg.extend(twitter_stopwords)
 
 
 list_of_tokens = ['ooo', 'abbrvt', 'hashtagg', 'exclmt', 'haha', 'rrrpp', 'mspld']
@@ -210,7 +218,7 @@ def repeat_exclamation(word):
     return res
 
 
-def remove_punctuation(text, excepts='!#<\'', numbers=True):
+def remove_punctuation(text, excepts='!#<\'():', numbers=True):
     """ Removes the punctuation from a text, except the ones in except (a string)."""
     text = text.lower()  # Remove caps
     punct = string.punctuation
@@ -219,8 +227,8 @@ def remove_punctuation(text, excepts='!#<\'', numbers=True):
         punct = punct.replace(symb, '')
         
     text = "".join([char for char in text if char not in punct])
-    text = re.sub('[0-1]+', '', text)
-    text = re.sub('[5-9]+', '', text)
+    #text = re.sub('[0-1]+', '', text)
+    #text = re.sub('[5-9]+', '', text)
     if not numbers :
         raise NotImplementedError
     return text
@@ -368,16 +376,35 @@ def construct_candidates_for_repeat_word(word):
         candidates.append(candidate)
         
     return candidates
-    
+
+
+def do_correction(data, i):
+    """ Function takes the data frame and the index and answers, with a bool, if 
+        we have to try to correct the word there. We don't want to correct words where there are certain tokens :
+        as they already have been resolved.
+        The only token we will attempt the correction on is the rrrpp token.
+        """
+    correct = True
+    tokens = data.iat[i, 3]
+    if tokens != ['rrrpp']:
+        correct = False
+    return correct
 
 def make_list_of_corrections(data):
     ls = []
     for i, corr in enumerate(data.correction):
-        if " " in corr:
+        if not do_correction(data, i):
+            continue
+        elif " " in corr:
             for word in corr.split():
                 ls.append(word)
-        else: ls.append(corr)
+        elif isinstance(corr, list):
+            ls.extend(corr)
             
+        elif not corr:  # Check if the list is empty. 
+            continue
+        else: 
+            ls.append(corr)
     return ls
 
 
@@ -423,6 +450,60 @@ def create_reference_dictionary(filename, learning=True, limit=1000000000000000)
 ### Resolve methods for Preprocessing
 
 
+def resolve_full_numbers(data):
+    """ Function removes the fullmatched numbers using a regex, note that sometimes people write O for 0."""
+    
+    # Find the number indices throug a regular expression.
+    number_indices = data.index[data.filewords.str.fullmatch(r"[0-9Oo]+")].tolist()
+    
+    # We have to exclude the cases with only Oo indices.
+    only_Oo_indices = data.index[data.filewords.str.fullmatch(r"[Oo]+")].tolist()
+    
+    # We will interpret these numbers differently
+    two_four_indices = data.index[data.filewords.str.fullmatch(r"2|4")].tolist()
+    
+    # Successively remove elements from each of the two lists from the first list
+    temp1 = [item for item in number_indices if item not in only_Oo_indices]
+    indices = [item for item in temp1 if item not in two_four_indices]
+    
+    # Correct the data frame :
+    for ind in indices:
+        data.iat[ind, 2] = ""
+        tok = data.iat[ind, 3]
+        tok.append('number')
+        data.iat[ind, 3] = tok
+
+        
+        
+def resolve_remaining_numbers(data):
+    """ Function replaces any remaining punctuations by blanks or equivalent in characters e.g 4 -> for."""
+    
+    # Other remaining characters are ":","()".
+    # Note that we are going through the correction and this function will be called after resolve_full_numbers
+    two_for_ind = data.index[data.correction.str.contains("2|4")].tolist()
+    
+    # get any other number :
+    path_ind = data.index[data.correction.str.contains("[\(\):1356789]")].tolist()
+    # Apply corrections
+    for i in two_for_ind:
+        word = data.iat[i, 2]
+        corrected_word = re.sub('2', 'to', word)
+        corrected_word = re.sub('4', 'for', corrected_word)
+        # In this precise case we'll also change the fileword column.
+        
+        data.iat[i, 0] = corrected_word
+        data.iat[i, 2] = corrected_word
+        
+    for i in path_ind:
+        # Remove all the other punctuation.
+        word = data.iat[i, 2]
+        corrected_word = re.sub('[\(\):1356789]+', '', word)
+        # In this precise case we'll also change the fileword column.
+        
+        data.iat[i, 0] = corrected_word
+        data.iat[i, 2] = corrected_word
+
+        
 def resolve_laugh(data, haha):
     """ Function reads the data and replaces any word containing a term in haha by a token that expresses
         laughter. """
@@ -489,7 +570,7 @@ def resolve_obvious_mistakes(data, om):
     #return data
     
     
-def resolve_abbreviations(data, abbr):
+def resolve_abbreviations(data, abbr, keep_abbreviations):
     """ Function takes a list of abbreviation and their correction (a list of tuples), and checks the dataset to correct these mistakes
     """
     abbs = split_list_of_tuples(abbr)
@@ -499,7 +580,9 @@ def resolve_abbreviations(data, abbr):
         
         # Correct the abbreviation and keep a token.
         for abb_err in abb_ind:
-            data.iat[abb_err, 2] = abbr[i][1]
+            # If we want to keep the abbreviations without changing them in words.
+            if not keep_abbreviations:
+                data.iat[abb_err, 2] = abbr[i][1] 
             tokens = data.iat[abb_err, 3]
             tokens.append('abbrvt')
             # If there's additional information about the abbreviation (e.g. lol)
@@ -554,6 +637,7 @@ def remove_stopwords_from_dataframe(data, stopword):
     
     for i, corr in enumerate(data.correction):
         data.iat[i, 2] = remove_stopwords(corr, stopword)
+        data.iat[i, 3] = remove_stopwords(data.iat[i, 3], stopword)
     #return data
 
     
@@ -565,7 +649,7 @@ def stem_and_lemmatize_data(data):
     #return data
     
     
-def correct_repeat_word(data, indices, onomatopee, abbreviations):
+def correct_repeat_word(data, indices, onomatopee, abbreviations, keep_abbreviations):
     """ Function will correct the words, making sure to check among abbreviations and 
         onomatopees first before using the spell checker."""
     
@@ -582,14 +666,17 @@ def correct_repeat_word(data, indices, onomatopee, abbreviations):
                 # Check if the candidate is an abbreviation.
                 found = True
                 abb_index = abbs.index(candidate)
-                data.iat[ind, 2] = abbreviations[abb_index][1]
-                
+                if not keep_abbreviations:
+                    data.iat[ind, 2] = abbreviations[abb_index][1]
+                else: 
+                    data.iat[ind, 2] = candidate
                 tokens = data.iat[ind, 3]
                 tokens.append('rrrpp')
                 tokens.append('abbrvt')
                 
                 if len(abbreviations[abb_index]) == 3:
                     tokens.append(abbreviations[abb_index][2])
+                break
                     
             elif candidate in onos:
                 # Check if the canditate is an onomatopee.
@@ -603,6 +690,7 @@ def correct_repeat_word(data, indices, onomatopee, abbreviations):
                 
                 if len(abbreviations[ono_index]) == 3:
                     tokens.append(abbreviations[ono_index][2])
+                break
             
             elif len(spell.unknown([candidate])) != 1:  # Checks if the spelling is correct.
                 found = True
@@ -611,7 +699,7 @@ def correct_repeat_word(data, indices, onomatopee, abbreviations):
                 
                 tokens = data.iat[ind, 3]
                 tokens.append('rrrpp')
-                
+                break
         if not found:
             # Take the candidate with the least amount of repetitions in it.
             data.iat[ind, 2] = cand_rep[-1]
@@ -627,14 +715,24 @@ def correct_remainder(data, candidates = 3):
     corrections = make_list_of_corrections(data)
     mistakes = spell.unknown(corrections)
     
-    for mistake in mistakes:
+    # Compute checks for the progression of the function.
+    N = len(mistakes)
+    checkmark = N / 20
+    
+    for i, mistake in enumerate(mistakes):
+        # Prints for where we are in the correction phase :
+        if i % checkmark == 0:
+            print("In correct_remainder : we are at {} completion".format(i / ( N / 20)))
         if len(spell.candidates(mistake)) <= candidates:
             correct = spell.correction(mistake)
-            mis_ind = data.index[data.filewords == mistake].tolist()
+            mis_ind = data.index[data.filewords == [mistake]].tolist()
             
+            # Note that if the correction has several words, by construction they are written correctly.
             for ind in mis_ind:
-                data.iat[ind, 2] = correct
+                data.iat[ind, 2] = [correct] # Correction is a list of words at this point
         else: continue
+    
+
     
     
 ##################################################### TF-IDF ANALYSIS ############################################################# 
@@ -696,49 +794,85 @@ def compute_tf_idf_analysis(df1, df2=None):
 #####################################################################################################################################
 
 
-def preprocess(filename, learning=True, orthograph=False):
+def preprocess(filename, learning=True, orthograph=False, keep_abbreviations=False):
     """ This method takes a filename of tweets and returns a pandas data frame on which the preprocessing has been done.
         orthograph = False asks whether we want to try and run the spellchecker on the remaining words (it can be very long).
         learning = True asks whether we are in a learning phase or testing phase.
         """
     # Create the pandas dataframe (it strips the line number if we are in the testing phase)
+    tic = time.perf_counter()
     df = create_reference_dictionary(filename, learning)
-    
+    toc = time.perf_counter()
+    print("Created dictionnary : {} time passed".format(toc - tic))
     
     # Resolve successively the different preprocessing phases on df.
+    # First check the punctuation :
+    resolve_full_numbers(df)
+    toc = time.perf_counter()
+    print("First number resolution : {} time passed".format(toc - tic))
     
-    # First remove the abbreviations
-    resolve_abbreviations(df, twitter_abbreviations)
+    # Then remove the abbreviations (some could feature numbers)
+    resolve_abbreviations(df, twitter_abbreviations, keep_abbreviations)
+    toc = time.perf_counter()
+    print("abbreviation resolution : {} time passed".format(toc - tic))
+    
+    # Remove the remaining numbers    
+    resolve_remaining_numbers(df)
+    toc = time.perf_counter()
+    print("Second number resolution : {} time passed".format(toc - tic))
     
     # Resolve the twitter obvious mistakes (such as dat for that etc)
     resolve_obvious_mistakes(df, twitter_obvious_mistakes)
+    toc = time.perf_counter()
+    print("Mistakes correction : {} time passed".format(toc - tic))
     
     # Take care of the onomatopeia
     resolve_onomatopee(df, onomatopees)
+    toc = time.perf_counter()
+    print("Onomatopeia resolution : {} time passed".format(toc - tic))
     
     # Take care of the laughs
     resolve_laugh(df, laughs)
+    toc = time.perf_counter()
+    print("laughter resolved : {} time passed".format(toc - tic))
     
     # Take care of the remaining punctuation
     resolve_punctuation(df, contractions)
+    toc = time.perf_counter()
+    print("Remaining punctuation taken care of : {} time passed".format(toc - tic))
     
     # Take care of words with repetitions
     # Find the indices where a repetion occurs
     rep_df = find_repeat_indices(df)
-    correct_repeat_word(df, rep_df, onomatopees, twitter_abbreviations)
+    correct_repeat_word(df, rep_df, onomatopees, twitter_abbreviations, keep_abbreviations)
+    toc = time.perf_counter()
+    print("Repeat words taken care of : {} time passed".format(toc - tic))
     
     # Up until now each correction was a string, we change them into a list of words
     resolve_correction_into_words(df)
+    toc = time.perf_counter()
+    print("Splitted the corrections : {} time passed".format(toc - tic))
     
     # We can now remove the stop words from the corrections
     remove_stopwords_from_dataframe(df, stopword_eg)
+    toc = time.perf_counter()
+    print("Stopwords removed : {} time passed".format(toc - tic))
     
     # Lastly, we can stem and lemmatize the corrections
     stem_and_lemmatize_data(df)
+    toc = time.perf_counter()
+    print("Stemmed and Lemmatized words : {} time passed".format(toc - tic))
     
     # Try to correct some spelling mistakes
     if orthograph:
-        raise NotImplementedError
+        correct_remainder(df)
+        toc = time.perf_counter()
+        print("Corrected words : {} time passed".format(toc - tic))
+        
+        # Perhaps some words were corrected into stopwords.
+        remove_stopwords_from_dataframe(df, stopword_eg)
+        toc = time.perf_counter()
+        print("Stopwords removed : {} time passed".format(toc - tic))
         
     return df
 
