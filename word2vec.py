@@ -14,17 +14,24 @@ import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.layers import Flatten
+from keras.layers import GlobalMaxPooling1D
+from keras.layers import Conv1D
+from keras.callbacks import ModelCheckpoint
 from keras.layers.embeddings import Embedding
 import random
 import tensorflow_hub as hub
 import bert
 import matplotlib.pyplot as plt
 from datetime import datetime
+from keras.layers import Input, Dense, concatenate, Activation
+from keras.models import Model
+from keras.models import load_model
 
 path = 'dataset/'
 test_path = path + "test_data.txt"
 path_processed_dataset = "processed_dataset" 
 path_results = "results/"
+path_model = "model/"
 google_vector_size = 300
 no_label = 5
 
@@ -229,13 +236,27 @@ def split_train_validation(X, y, train_percentage=0.85) :
     return X_train, y_train, X_validation, y_validation
 
 def get_neural_network_model(embeding_matrix, max_num_words, vector_size, length_input):
-    model = Sequential()
-    e = Embedding(max_num_words, vector_size, weights=[embedding_matrix], input_length=length_input, trainable=True)
-    model.add(e)
-    model.add(Flatten())
-    model.add(Dense(256, activation='relu'))
-    model.add(Dense(1, activation='sigmoid'))
+    tweet_input = Input(shape=(length_input,), dtype='int32')
+    tweet_encoder = Embedding(max_num_words, vector_size, weights=[embedding_matrix], input_length=length_input, trainable=True)(tweet_input)
+    bigram_branch = Conv1D(filters=100, kernel_size=2, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    bigram_branch = GlobalMaxPooling1D()(bigram_branch)
+    trigram_branch = Conv1D(filters=100, kernel_size=3, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    trigram_branch = GlobalMaxPooling1D()(trigram_branch)
+    fourgram_branch = Conv1D(filters=100, kernel_size=4, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    fourgram_branch = GlobalMaxPooling1D()(fourgram_branch)
+    merged = concatenate([bigram_branch, trigram_branch, fourgram_branch], axis=1)
+
+    merged = Dense(256, activation='relu')(merged)
+    merged = Dropout(0.2)(merged)
+    merged = Dense(1)(merged)
+    output = Activation('sigmoid')(merged)
+    model = Model(inputs=[tweet_input], outputs=[output])
+    model.compile(loss='binary_crossentropy',
+                      optimizer='adam',
+                      metrics=['binary_accuracy'])
+    model.summary()
     return model
+
 
 
 def draw_graph_validation_epoch(history, datetime):
@@ -299,7 +320,7 @@ def store_results(name_submission, pred_int):
 #     return tokenized, tokenized_test, len(tokenizer.vocab)
 
 if __name__ == '__main__':
-    full_data = True
+    full_data = False
     train_neg_path, train_pos_path, test_path = data_path(full_data)
 
     train_pos_label, train_pos = raw_to_cleaned_tweets(train_pos_path, 1)    
@@ -348,18 +369,23 @@ if __name__ == '__main__':
     
     model = get_neural_network_model(embedding_matrix, embedding_matrix.shape[0], embedding_matrix.shape[1], max_length)
 
-
-
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['binary_accuracy'])
+    filepath= path_model + "word2vec_CNN_best_weights"
+    checkpoint = ModelCheckpoint(filepath, monitor='val_binary_accuracy', verbose=1, save_best_only=True, mode='max')
 
     print("training neural network...")
-    history = model.fit(X_train, y_train, validation_data=(X_validation, y_validation), epochs=2, batch_size=500, verbose=1)
+    history = model.fit(X_train, y_train, validation_data=(X_validation, y_validation),
+                        epochs=4, batch_size=500, verbose=1,
+                        callbacks = [checkpoint])
+
+
+    loaded_model = load_model(path_model + 'word2vec_CNN_best_weights')
+
 
     datetime = str(datetime.now()).replace(" ","__").replace(":","-")
     draw_graph_validation_epoch(history, datetime)
     
     print("predict test set...")
-    pred = model.predict(X_test)
+    pred = loaded_model.predict(X_test)
     pred_int = pred.round().astype("int")
 
     
