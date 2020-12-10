@@ -32,14 +32,13 @@ test_path = path + "test_data.txt"
 path_processed_dataset = "processed_dataset" 
 path_results = "results/"
 path_model = "model/"
-google_vector_size = 300
 no_label = 5
 
     
 
 
 
-
+# google_vector_size = 300
 # def clean_tweets_tokenized(tweets_tokenized, intersection):
 #     print("number of tweets :{}".format(len(tweets_tokenized)))
 #     tweets_cleaned = []
@@ -110,7 +109,7 @@ def clean_line(line):
 
 
 
-def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, seed):
+def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, seed=1, neg_sampling=5, alpha=0.065):
     print("training word2vec skipgram model...")
     model_skipgram = Word2Vec(sentences=vocabulary,
                         size=int(vector_size/2), 
@@ -118,6 +117,9 @@ def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, s
                         iter=epochs,
                         seed=seed,
                         sg=1,
+                        negative=neg_sampling,
+                        alpha=alpha,
+                        min_alpha=alpha,
                         workers=multiprocessing.cpu_count())
     print("training word2vec skipgram model terminated")
     
@@ -128,6 +130,9 @@ def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, s
                         iter=epochs,
                         seed=seed,
                         sg=0,
+                        negative=neg_sampling,
+                        alpha=alpha,
+                        min_alpha=alpha,
                         workers=multiprocessing.cpu_count())
     print("training word2vec cbow model terminated")
     return model_skipgram, model_cbow
@@ -235,25 +240,27 @@ def split_train_validation(X, y, train_percentage=0.85) :
     y_validation = y[break_point:]
     return X_train, y_train, X_validation, y_validation
 
-def get_neural_network_model(embeding_matrix, max_num_words, vector_size, length_input):
+def get_neural_network_model(embeding_matrix, max_num_words, vector_size, length_input, filter_number=100, dense_number=256, dropout=0.2,
+                            loss ='binary_crossentropy', optimizer='adam',metrics=['binary_accuracy']):
     tweet_input = Input(shape=(length_input,), dtype='int32')
     tweet_encoder = Embedding(max_num_words, vector_size, weights=[embedding_matrix], input_length=length_input, trainable=True)(tweet_input)
-    bigram_branch = Conv1D(filters=100, kernel_size=2, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    bigram_branch = Conv1D(filters=filter_number, kernel_size=2, padding='valid', activation='relu', strides=1)(tweet_encoder)
     bigram_branch = GlobalMaxPooling1D()(bigram_branch)
-    trigram_branch = Conv1D(filters=100, kernel_size=3, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    trigram_branch = Conv1D(filters=filter_number, kernel_size=3, padding='valid', activation='relu', strides=1)(tweet_encoder)
     trigram_branch = GlobalMaxPooling1D()(trigram_branch)
-    fourgram_branch = Conv1D(filters=100, kernel_size=4, padding='valid', activation='relu', strides=1)(tweet_encoder)
+    fourgram_branch = Conv1D(filters=filter_number, kernel_size=4, padding='valid', activation='relu', strides=1)(tweet_encoder)
     fourgram_branch = GlobalMaxPooling1D()(fourgram_branch)
     merged = concatenate([bigram_branch, trigram_branch, fourgram_branch], axis=1)
 
-    merged = Dense(256, activation='relu')(merged)
-    merged = Dropout(0.2)(merged)
+    merged = Dense(dense_number, activation='relu')(merged)
+    merged = Dropout(dropout)(merged)
+
     merged = Dense(1)(merged)
     output = Activation('sigmoid')(merged)
     model = Model(inputs=[tweet_input], outputs=[output])
-    model.compile(loss='binary_crossentropy',
-                      optimizer='adam',
-                      metrics=['binary_accuracy'])
+    model.compile(loss=loss,
+                      optimizer=optimizer,
+                      metrics=metrics)
     model.summary()
     return model
 
@@ -304,20 +311,6 @@ def store_results(name_submission, pred_int):
     finally:
         resFile.close()  
 
-# def tokenize_tweet_bert(tokenizer, tweets):
-#     return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(tweets))
-
-# def tokenize_tweets_bert(tweets, tweets_test):
-#     BertTokenizer = bert.bert_tokenization.FullTokenizer
-#     bert_layer = hub.KerasLayer("https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/1",
-#                                   trainable=False)
-#     vocabulary_file = bert_layer.resolved_object.vocab_file.asset_path.numpy()
-#     to_lower_case = bert_layer.resolved_object.do_lower_case.numpy()
-#     tokenizer = BertTokenizer(vocabulary_file, to_lower_case)
-
-#     tokenized = [tokenize_tweet_bert(tokenizer, tweet) for tweet in tweets]
-#     tokenized_test = [tokenize_tweet_bert(tokenizer, tweet) for tweet in tweets_test]
-#     return tokenized, tokenized_test, len(tokenizer.vocab)
 
 if __name__ == '__main__':
     full_data = False
@@ -330,11 +323,14 @@ if __name__ == '__main__':
     all_tweets = train_pos + train_neg + test
     vocab = get_vocab(list_tweets_to_list_words(all_tweets))
 
-    vector_size = 20 # must be odd : 1/2 for both models
+    vector_size = 200 # must be odd : 1/2 for both models
     window_size = 6
-    epochs = 6
+    epochs_word2vec = 30
+    neg_sampling = 5
+    alpha = 0.065
     seed = 1
-    model_skipgram, model_cbow =  word2vec_self_training_model(vocab, vector_size, window_size, epochs, seed) 
+    
+    model_skipgram, model_cbow =  word2vec_self_training_model(vocab, vector_size, window_size, epochs_word2vec, seed, neg_sampling, alpha) 
 
     embeddings_index = build_embedding_index(model_skipgram, model_cbow)
 
@@ -346,6 +342,7 @@ if __name__ == '__main__':
     tweets_test_tokenized = tokenizer.texts_to_sequences(test)
     print("tokenizing terminated")
     max_length = get_max_length(tweets_tokenized + tweets_test_tokenized)
+
 
     #padding to get same length
     X = tf.keras.preprocessing.sequence.pad_sequences(tweets_tokenized, maxlen=max_length)
@@ -366,15 +363,23 @@ if __name__ == '__main__':
     X_train, y_train, X_validation, y_validation = split_train_validation(X, y, train_percentage_validation)
 
 
-    
-    model = get_neural_network_model(embedding_matrix, embedding_matrix.shape[0], embedding_matrix.shape[1], max_length)
+    filter_number=100
+    dense_number=256
+    dropout=0.2
+    loss ='binary_crossentropy'
+    optimizer='adam'
+    model = get_neural_network_model(embedding_matrix, embedding_matrix.shape[0], embedding_matrix.shape[1], max_length,
+                                     filter_number=filter_number, dense_number=dense_number, dropout=dropout,
+                                     loss =loss, optimizer=optimizer)
 
     filepath= path_model + "word2vec_CNN_best_weights"
     checkpoint = ModelCheckpoint(filepath, monitor='val_binary_accuracy', verbose=1, save_best_only=True, mode='max')
 
     print("training neural network...")
+    epochs_nn = 4
+    batch_size = 500
     history = model.fit(X_train, y_train, validation_data=(X_validation, y_validation),
-                        epochs=4, batch_size=500, verbose=1,
+                        epochs=epochs_nn, batch_size=batch_size, verbose=1,
                         callbacks = [checkpoint])
 
 
