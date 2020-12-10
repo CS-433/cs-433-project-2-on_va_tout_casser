@@ -109,7 +109,7 @@ def clean_line(line):
 
 
 
-def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, seed=1, neg_sampling=5, alpha=0.065):
+def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, seed=1, neg_sampling=5, alpha=0.065, min_word_count=2):
     print("training word2vec skipgram model...")
     model_skipgram = Word2Vec(sentences=vocabulary,
                         size=int(vector_size/2), 
@@ -120,6 +120,7 @@ def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, s
                         negative=neg_sampling,
                         alpha=alpha,
                         min_alpha=alpha,
+                        min_count=min_word_count,
                         workers=multiprocessing.cpu_count())
     print("training word2vec skipgram model terminated")
     
@@ -133,6 +134,7 @@ def word2vec_self_training_model(vocabulary, vector_size, window_size, epochs, s
                         negative=neg_sampling,
                         alpha=alpha,
                         min_alpha=alpha,
+                        min_count=min_word_count,
                         workers=multiprocessing.cpu_count())
     print("training word2vec cbow model terminated")
     return model_skipgram, model_cbow
@@ -328,13 +330,14 @@ if __name__ == '__main__':
     epochs_word2vec = 30
     neg_sampling = 5
     alpha = 0.065
+    min_word_count =  2
     seed = 1
     
-    model_skipgram, model_cbow =  word2vec_self_training_model(vocab, vector_size, window_size, epochs_word2vec, seed, neg_sampling, alpha) 
+    model_skipgram, model_cbow =  word2vec_self_training_model(vocab, vector_size, window_size, epochs_word2vec, seed, neg_sampling, alpha, min_word_count) 
 
     embeddings_index = build_embedding_index(model_skipgram, model_cbow)
 
-    max_num_words = 200000 # << len(vocab))
+    max_num_words = 100000 # << len(vocab))
     #tokenize to ids
     print("tokenizing ...")
     tokenizer = build_keras_tokenizer(all_tweets,max_num_words)
@@ -357,15 +360,16 @@ if __name__ == '__main__':
 
     store_processed_data(X, X_test, y, embedding_matrix)
     recover_processed_data()
-    seed = 1
+    seed_val = 1
     train_percentage_validation = 0.85
-    X, y = shuffle_data(X, y, seed=seed)
+    X, y = shuffle_data(X, y, seed=seed_val)
     X_train, y_train, X_validation, y_validation = split_train_validation(X, y, train_percentage_validation)
 
 
-    filter_number=100
-    dense_number=256
-    dropout=0.2
+    filter_number = 100
+    dense_number = 256
+    dropout = 0.2
+    #modify the loss and the metric could break the graph
     loss ='binary_crossentropy'
     optimizer='adam'
     model = get_neural_network_model(embedding_matrix, embedding_matrix.shape[0], embedding_matrix.shape[1], max_length,
@@ -376,8 +380,8 @@ if __name__ == '__main__':
     checkpoint = ModelCheckpoint(filepath, monitor='val_binary_accuracy', verbose=1, save_best_only=True, mode='max')
 
     print("training neural network...")
-    epochs_nn = 4
-    batch_size = 500
+    epochs_nn = 2
+    batch_size = 3000
     history = model.fit(X_train, y_train, validation_data=(X_validation, y_validation),
                         epochs=epochs_nn, batch_size=batch_size, verbose=1,
                         callbacks = [checkpoint])
@@ -387,7 +391,7 @@ if __name__ == '__main__':
 
 
     datetime = str(datetime.now()).replace(" ","__").replace(":","-")
-    draw_graph_validation_epoch(history, datetime)
+    
     
     print("predict test set...")
     pred = loaded_model.predict(X_test)
@@ -395,9 +399,10 @@ if __name__ == '__main__':
 
     
     name_submission = datetime
-
-
     store_results(name_submission, pred_int)
+
+    print("drawing graph...")
+    draw_graph_validation_epoch(history, datetime)
 
     print("the magic has terminated, what a great time we lived together")
     
