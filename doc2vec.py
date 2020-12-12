@@ -52,21 +52,19 @@ def raw_to_cleaned_tweets(path, label):
 
 
 
-def model_to_X(model_dm, model_dbow, num_samples):
+def model_to_X(model_dm, model_dbow, num_samples, vector_size):
     X = np.zeros((num_samples, vector_size))
     for i in range(num_samples):
         X[i, :] = np.append(model_dm.docvecs[i], model_dbow.docvecs[i])
     return X
 
-#TODO: explain, https://radimrehurek.com/gensim/models/doc2vec.html
-# from the paper https://arxiv.org/pdf/1405.4053v2.pdf
-def doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, epochs, seed):
+def doc2vec(tweets_tokenized, tweets_test_tokenized, dm_vector_size, dbow_vector_size, window_size, epochs, seed):
     docs = [TaggedDocument(doc, [tag]) for tag, doc in enumerate(tweets_tokenized + tweets_test_tokenized)]
     print("training doc2vec PV_DM model...")
 
     model_dm =  Doc2Vec(docs,
                     dm=1, 
-                    vector_size=vector_size, 
+                    vector_size= dm_vector_size, 
                     window=window_size, 
                     seed=seed,
                     epochs=epochs,
@@ -76,15 +74,15 @@ def doc2vec(tweets_tokenized, tweets_test_tokenized, vector_size, window_size, e
     print("training doc2vec PV-DBOW model...")
     model_dbow =  Doc2Vec(docs,
                     dm=0, 
-                    vector_size=vector_size, 
+                    vector_size=dbow_vector_size, 
                     window=window_size, 
                     seed=seed,
                     epochs=epochs,
                     workers=multiprocessing.cpu_count())
     print("training doc2vec PV-DBOW model terminated")
 
-
-    X_total = model_to_X(model_dm, model_dbow, len(tweets_tokenized) + len(tweets_test_tokenized))
+    vector_size = dm_vector_size + dbow_vector_size
+    X_total = model_to_X(model_dm, model_dbow, len(tweets_tokenized) + len(tweets_test_tokenized), vector_size)
     X = X_total[0: len(tweets_tokenized),:]
 
 
@@ -104,12 +102,15 @@ if __name__ == '__main__':
     tweets_labels = train_pos_label + train_neg_label
 
 
-    vector_size = 100
+    dm_vector_size = 5
+    dbwow_vector_size = 5
+    # => total_vector_size == dbwow_vector_size + dm_vector_size
     window_size = 10
     seed = 1
-    doc2vec_epochs = 20
+    #number of epochs for each models (PV-DM and PV-DBOW)
+    doc2vec_epochs = 2
 
-    X, X_test = doc2vec(train_tokenized_pos + train_tokenized_neg, test_tokenized, vector_size, window_size, doc2vec_epochs, seed)
+    X, X_test = doc2vec(train_tokenized_pos + train_tokenized_neg, test_tokenized, dm_vector_size, dbwow_vector_size, window_size, doc2vec_epochs, seed)
 
     y = np.array(tweets_labels)
 
