@@ -29,7 +29,7 @@ from keras.models import load_model
 
 path = 'dataset/'
 test_path = path + "test_data.txt"
-path_processed_dataset = "processed_dataset" 
+path_processed_dataset = "processed_dataset/" 
 path_results = "results/"
 path_model = "model/"
 no_label = 5
@@ -101,11 +101,11 @@ no_label = 5
 
 
 def clean_line(line):
-    line_cleaned = line.replace("\n","")
-    line_cleaned = line.replace('<user>','')
-    line_cleaned = line.replace('<url>','')
-    line_cleaned = "".join([char for char in line if char not in string.punctuation])
-    return line_cleaned
+    line = line.replace("\n","")
+    line = line.replace('<user>','')
+    line = line.replace('<url>','')
+    line = "".join([char for char in line if char not in string.punctuation])
+    return line
 
 
 
@@ -381,7 +381,7 @@ if __name__ == '__main__':
 
     print("training neural network...")
     epochs_nn = 2
-    batch_size = 3000
+    batch_size = 64
     history = model.fit(X_train, y_train, validation_data=(X_validation, y_validation),
                         epochs=epochs_nn, batch_size=batch_size, verbose=1,
                         callbacks = [checkpoint])
