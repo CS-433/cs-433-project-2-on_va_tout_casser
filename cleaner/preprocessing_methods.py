@@ -187,10 +187,10 @@ laughs = ['hah', 'heh', 'hih', 'huh', 'hoh', 'jaj']
 stopword_eg = nltk.corpus.stopwords.words('english')
 
 
-twitter_stopwords = ['<user', '<url', 'rrrpp', 'rt', 'mspld', 'exclmt', 'abbrvt']
+twitter_stopwords = ['user', 'rrrpp', 'mspld', 'exclmt', 'abbrvt', 'hashtagg']
 
 
-stopword_eg.extend(twitter_stopwords)
+twitter_stopwords.extend(stopword_eg)
 
 
 list_of_tokens = ['ooo', 'abbrvt', 'hashtagg', 'exclmt', 'haha', 'rrrpp', 'mspld']
@@ -384,11 +384,14 @@ def do_correction(data, i):
         as they already have been resolved.
         The only token we will attempt the correction on is the rrrpp token.
         """
-    correct = True
+    correct = False
     tokens = data.iat[i, 3]
-    if tokens != ['rrrpp']:
-        correct = False
+    if tokens == ['rrrpp']:
+        correct = True  # By correct, we mean, we have to correct
+    if tokens == []:
+        correct = True
     return correct
+
 
 def make_list_of_corrections(data):
     ls = []
@@ -483,7 +486,7 @@ def resolve_remaining_numbers(data):
     two_for_ind = data.index[data.correction.str.contains("2|4")].tolist()
     
     # get any other number :
-    path_ind = data.index[data.correction.str.contains("[\(\):1356789]")].tolist()
+    path_ind = data.index[data.correction.str.contains("[\(\):1356789<>]")].tolist()
     # Apply corrections
     for i in two_for_ind:
         word = data.iat[i, 2]
@@ -497,11 +500,14 @@ def resolve_remaining_numbers(data):
     for i in path_ind:
         # Remove all the other punctuation.
         word = data.iat[i, 2]
-        corrected_word = re.sub('[\(\):1356789]+', '', word)
+        corrected_word = re.sub('[\(\):1356789<>]+', '', word)
         # In this precise case we'll also change the fileword column.
         
-        data.iat[i, 0] = corrected_word
-        data.iat[i, 2] = corrected_word
+        if 'abbrvt' in data.iat[i, 3]:
+            continue
+        else :
+            data.iat[i, 0] = corrected_word
+            data.iat[i, 2] = corrected_word
 
         
 def resolve_laugh(data, haha):
@@ -713,10 +719,12 @@ def correct_remainder(data, candidates = 3):
     
     spell = SpellChecker()
     corrections = make_list_of_corrections(data)
+    
     mistakes = spell.unknown(corrections)
     
     # Compute checks for the progression of the function.
     N = len(mistakes)
+    print("number of corrections {}".format(N))
     checkmark = N / 20
     
     for i, mistake in enumerate(mistakes):
@@ -725,11 +733,12 @@ def correct_remainder(data, candidates = 3):
             print("In correct_remainder : we are at {} completion".format(i / ( N / 20)))
         if len(spell.candidates(mistake)) <= candidates:
             correct = spell.correction(mistake)
-            mis_ind = data.index[data.filewords == [mistake]].tolist()
-            
+            #mask = data.correction.apply(lambda x : mistake in x)
+            #data[mask] = [correct]
+            data.correction.replace([mistake], [correct])
             # Note that if the correction has several words, by construction they are written correctly.
-            for ind in mis_ind:
-                data.iat[ind, 2] = [correct] # Correction is a list of words at this point
+            #for ind in mis_ind:
+            #    data.iat[ind, 2] = [correct] # Correction is a list of words at this point
         else: continue
     
 
@@ -853,7 +862,8 @@ def preprocess(filename, learning=True, orthograph=False, keep_abbreviations=Fal
     toc = time.perf_counter()
     print("Splitted the corrections : {} time passed".format(toc - tic))
     
-    # We can now remove the stop words from the corrections
+    # We can now remove the stop words from the corrections don't remove the tokens as they are used in the last
+    # correction method.
     remove_stopwords_from_dataframe(df, stopword_eg)
     toc = time.perf_counter()
     print("Stopwords removed : {} time passed".format(toc - tic))
@@ -869,10 +879,10 @@ def preprocess(filename, learning=True, orthograph=False, keep_abbreviations=Fal
         toc = time.perf_counter()
         print("Corrected words : {} time passed".format(toc - tic))
         
-        # Perhaps some words were corrected into stopwords.
-        remove_stopwords_from_dataframe(df, stopword_eg)
-        toc = time.perf_counter()
-        print("Stopwords removed : {} time passed".format(toc - tic))
+    # Perhaps some words were corrected into stopwords.
+    #remove_stopwords_from_dataframe(df, twitter_stopwords)
+    toc = time.perf_counter()
+    print("Stopwords removed : {} time passed".format(toc - tic))
         
     return df
 
@@ -886,7 +896,7 @@ def write_new_test_file_from_df(data, filename):
     
     with open(filename, 'w', encoding="utf8") as fh:
         i = 0
-        while i <len(data.position):
+        while i < len(data.position):
             pos = data.iat[i, 1]
             line_number = pos[0]
             # write the line number at the start of each line.
