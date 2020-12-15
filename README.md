@@ -71,7 +71,7 @@ dropout = 0.1
 train_percentage_validation = 0.90
 ```
 
-The trainable argument will decide whether or not the NN will consider the vector values resulting from the embedding layer should be considered as trainable or not. When set to True, this will effectively augment considerably the number of parameters. You may want to decrease the number of NN epochs to avoid a long computation and overfitting. The filter and the dense numbers are for the convolutional and dense layer. Increasing them will increase the number of parameters and thus the complexity of the overall model. The dropout percentage is obviously the regularization parameter for the dropout layer to avoid overfitting (c.f. structure part). The last parameters decides how much of the data will be used for training and for validation. A standard value for validation is about 10%. 
+The trainable argument will decide whether or not the NN will consider the vector values resulting from the embedding layer should be considered as trainable or not. When set to True, this will effectively augment considerably the number of parameters. You may want to decrease the number of NN epochs to avoid a long computation and overfitting. The filter and the dense numbers are for the convolutional and dense layer. Increasing them will increase the number of parameters and thus the complexity of the overall model. The dropout percentage is obviously the regularization parameter of the dropout layer to avoid overfitting (c.f. structure part). The last parameters decides how much of the data will be used for training and for validation. A standard value for validation is about 10%. 
 
 
 ```python
