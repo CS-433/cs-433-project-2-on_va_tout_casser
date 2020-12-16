@@ -17,6 +17,9 @@ pip install pickle
 pip install numpy
 pip install tensorflow-hub
 pip install matplotlib
+pip install sklearn
+pip install pandas
+pip install pyspellchecker
 ```
 
 ### Documentation
@@ -32,6 +35,19 @@ As said on [Gensim](https://pypi.org/project/gensim/), "Gensim is a Python libra
 #### NLTK
 
 The NLTK library was used to do the preprocessing part.
+Note on the use of the NLTK library : We use this library to obtain lists of words. So if the specified list doesn't exist, it must be downloaded (using the line from the error message).
+
+#### Sklearn
+
+Sklearn was used for the tf-idf analysis
+
+#### Pandas 
+
+It is used in the preprocessing, to create our dataframes
+
+#### Pyspellchecker
+
+Used in the preprocessing in the spell checking (optional phase)
 
 #### Numpy & matplotlib & pickle
 

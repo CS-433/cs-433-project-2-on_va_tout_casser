@@ -880,7 +880,7 @@ def preprocess(filename, learning=True, orthograph=False, keep_abbreviations=Fal
         print("Corrected words : {} time passed".format(toc - tic))
         
     # Perhaps some words were corrected into stopwords.
-    #remove_stopwords_from_dataframe(df, twitter_stopwords)
+    remove_stopwords_from_dataframe(df, twitter_stopwords)
     toc = time.perf_counter()
     print("Stopwords removed : {} time passed".format(toc - tic))
         
@@ -893,6 +893,8 @@ def preprocess(filename, learning=True, orthograph=False, keep_abbreviations=Fal
 
     
 def write_new_test_file_from_df(data, filename):
+    """ Method takes a dataframe and a filename and will write the correction and token columns of the dataframe at the filename
+        location."""
     
     with open(filename, 'w', encoding="utf8") as fh:
         i = 0
