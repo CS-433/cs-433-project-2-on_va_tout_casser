@@ -42,6 +42,18 @@ These are general libraries used by everyone. Numpy is for data representation, 
 
 This folder should contain a file run.py which produces the same outputs as on AICrowd for our team. 
 
+### File organization
+
+In order to execute the code, you need to have the training data and the test data at the right place. You can specify the path to this data with the following variable: 
+
+```python
+path = "datasets\\"
+pos = "pos_train_full.txt"
+neg = "neg_train_full.txt"
+test = "test_data.txt"
+```
+The folder pointed should contain  ,  
+
 ### Structure
 
 First, our program does a little bit of pre-processing (in fact, we did a bigger pre-processing, but it turned out that is does not increase accuracy!). After that, a NN is employed. The figure depicted below shows the global structure of the NN that is being used. The number displayed may vary depending on the given model parameters. The first layer is an embedding (see latex document). Next, we split the NN in three branches, each containing a convolutional layer and a so-called Global-Max-Pooling (which is basically an ordinary max pooling layer with a pool size equal to the input size). After concatenation, we put a dense layer (= fully connected layer) and a dropout layer (which randomly sets input units to 0 with a given frequency at each step during training time to prevent overfitting.) At the end, the activation layer which finishes the classification.
