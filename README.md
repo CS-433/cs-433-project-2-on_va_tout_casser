@@ -52,7 +52,7 @@ pos = "pos_train_full.txt"
 neg = "neg_train_full.txt"
 test = "test_data.txt"
 ```
-The folder pointed should contain  ,  
+The folder pointed should contain the files with variable name "pos", "neg" and "test". These should be the file names of the data given by the course github for the project.  
 
 ### Structure
 
