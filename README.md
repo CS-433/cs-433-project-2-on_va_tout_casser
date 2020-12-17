@@ -114,4 +114,4 @@ The NN epochs are the number of iterations to do with the data over the NN. If t
 use_pickle = False
 ```
 
-Finally, you can set this variable to True in order to re-use the data splitting and the embedding matrix if you have already run the code before. 
+Finally, you can set this variable to True in order to re-use the data splitting and the embedding matrix if you have already run the code before. If set to True, do not change the parameters of Word2Vec: it will change nothing to the computation (only the previous parameters will be used), but it will change (wrongly) the values of the parameters used in the result files.
