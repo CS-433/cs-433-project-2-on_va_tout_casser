@@ -63,7 +63,7 @@ This folder should contain a file run.py which produces the same outputs as on A
 
 ### File organization
 
-In order to execute the code, you need to have the training data and the test data at the right place. You can specify the path to this data with the following variable: 
+In order to execute the code, you need to add the training data and the test data into the datasets folder. You can specify the path to this data with the following variable: 
 
 ```python
 path = "datasets/"
@@ -71,7 +71,7 @@ pos_file = "pos_train_full.txt"
 neg_file = "neg_train_full.txt"
 test_file = "test_data.txt"
 ```
-The folder pointed should contain the files with variable name "pos_file", "neg_file" and "test_file". These should be the file names of the data given by the course github for the project. Make sure while running the code to be on the right location. If using Windows, change the '/' into '\\' for all the pathes.
+The folder pointed should contain the files with variable name "pos_file", "neg_file" and "test_file". These should be the file names of the data given by the course github for the project. Make sure while running the code to be on the right location. If using Windows, change the "/" into "\\" for all the pathes.
 
 ```python
 path_processed_dataset = "processed_dataset/" 
