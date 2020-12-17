@@ -71,7 +71,7 @@ pos_file = "pos_train_full.txt"
 neg_file = "neg_train_full.txt"
 test_file = "test_data.txt"
 ```
-The folder pointed should contain the files with variable name "pos_file", "neg_file" and "test_file". These should be the file names of the data given by the course github for the project. Make sure while running the code to be on the right location. If using Windows, change the "/" into "&#92;&#92;" for all the pathes.
+The folder pointed should contain the files with variable name "pos_file", "neg_file" and "test_file". These should be the file names of the data given by the course github for the project. Make sure while running the code to be on the right location. For Windows, change the "/" into "&#92;&#92;" for all the pathes.
 
 ```python
 path_processed_dataset = "processed_dataset/" 
