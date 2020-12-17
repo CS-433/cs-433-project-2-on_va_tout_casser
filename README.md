@@ -25,6 +25,7 @@ pip install pyspellchecker
 ```
 ### Google Colab
 If you are facing any issues with these packages installation or if you want simply to run the code, we provided a Google Colab Notebook at this [link](https://drive.google.com/drive/folders/1kuJXFgFZdqRpmy8_crkD2OBNvvo1FjoF?usp=sharing). Nevertheless, we encourage you to download the python scripts, because in our point of view they could be more readable.
+![NN](https://github.com/CS-433/cs-433-project-2-on_va_tout_casser/blob/main/MLProject.gif)
 ### Documentation
 
 #### TensorFlow and keras
@@ -96,8 +97,8 @@ Bellow you will find a list of the model parameters.
 
 ```python
 
-skip_vector_size = 0
-cbow_vector_size = 50
+skip_vector_size = 50
+cbow_vector_size = 10
 window_size = 4
 epochs_word2vec = 15
 min_word_count =  2
@@ -113,7 +114,7 @@ You can set this variable to True in order to re-use the data splitting and the 
 
 ```python
 
-trainable = False
+trainable = True
 filter_number = 100
 dense_number = 256
 dropout = 0.1
@@ -124,7 +125,7 @@ The trainable argument will decide whether or not the NN will consider the vecto
 
 
 ```python
-epochs_nn = 15
+epochs_nn = 5
 batch_size = 50
 ```
 
