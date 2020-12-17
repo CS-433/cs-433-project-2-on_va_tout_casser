@@ -137,5 +137,5 @@ optimizer = 'adam'
 ```
 The activation function will be the one used all over the CNN, except in the last layer where the sigmoid activation function is kept to obtain a probability as output. The loss parameter is the loss function we want to minimize, other loss such as 'hinge' could be used. The optimizer parameter can also be changed, for example to 'SGD' if we wnat to use stochastic gradient descent.
 
-### Parameters
+### Runtime
 Using GPU's, expect to pass approximatively 2 hours per CNN epochs. In overall, it takes for the program to finish in average 10 hours.
