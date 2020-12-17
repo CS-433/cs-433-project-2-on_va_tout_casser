@@ -96,6 +96,13 @@ min_word_count =  2
 
 ```
 These values specifies the Word2Vec embedding layer construction parameters. The first two define the size of the CBOW and the Skip-Gram to use. Indeed, we decided to try a mix of both models. The window_size is the maximum distance between the current and the predicted word within a tweet. The number of epochs it the number of iterations over the dataset to be done for the Word2Vec embedding. The last parameters represents the minimum number of appearance of a word in order for it to be considered by the algorithm.
+
+```python
+use_pickle = False
+```
+
+You can set this variable to True in order to re-use the data splitting and the embedding matrix (resulting to the given Word2Vec parameters) if you have already run the code before. If set to True, do not change the parameters of Word2Vec: it will change nothing to the computation (only the previous parameters will be used), but it will change (wrongly) the values of the parameters used in the result files.
+
 ```python
 
 trainable = False
@@ -122,8 +129,4 @@ optimizer = 'adam'
 ```
 The activation function will be the one used all over the CNN, except in the last layer where the sigmoid activation function is kept to obtain a probability as output. The loss parameter is the loss function we want to minimize, other loss such as 'hinge' could be used. The optimizer parameter can also be changed, for example to 'SGD' if we wnat to use stochastic gradient descent.
 
-```python
-use_pickle = False
-```
 
-Finally, you can set this variable to True in order to re-use the data splitting and the embedding matrix if you have already run the code before. If set to True, do not change the parameters of Word2Vec: it will change nothing to the computation (only the previous parameters will be used), but it will change (wrongly) the values of the parameters used in the result files.
