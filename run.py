@@ -29,7 +29,7 @@ epochs_word2vec = 15
 min_word_count =  2
 
 #don't change the Word2Vec params when set to True, will alterate name_submission
-use_pickle = True
+use_pickle = False
 
 #CNN Params
 train_percentage_validation = 0.90
