@@ -59,7 +59,7 @@ These are general libraries used by everyone. Numpy is for data representation, 
 
 ## The ML program
 
-This folder should contain a file run.py which produces the same outputs as on AICrowd for our team. 
+This folder should contain a file run.py which produces the same outputs as on AICrowd for our team. The only scripts that are used during the execution are : run.py, word2vec_final.py, cnn.py utils.py, tweets_tools.py. The other are the other models we tried and are present for completeness. 
 
 ### File organization
 
