@@ -6,14 +6,15 @@ The purpose of this project was to test and compare different text classificatio
 This is a quick overview of the libraries used.
 ### Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the libraries used in the project.
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the libraries used in the project. Make sure to have the latest version of pip : use "pip install --upgrade pip" and in Windows "python -m pip install --upgrade pip". Make sure to use at least the 3.7.* python version. 
+
 
 ```bash
 pip install tensorflow
 pip install keras
 pip install gensim
 pip install nltk
-pip install pickle
+pip install pickle5
 pip install numpy
 pip install tensorflow-hub
 pip install matplotlib
