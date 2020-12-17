@@ -70,6 +70,12 @@ test_file = "test_data.txt"
 ```
 The folder pointed should contain the files with variable name "pos_file", "neg_file" and "test_file". These should be the file names of the data given by the course github for the project. Make sure while running the code to be on the right location.
 
+
+```python
+name_model = "Word2Vec_CNN"
+```
+The name model parameter is used when we store the results to know what we have computed.
+
 ### Structure
 
 First, our program does a little bit of pre-processing (in fact, we did a bigger pre-processing, but it turned out that is does not increase accuracy!). After that, a NN is employed. The figure depicted below shows the global structure of the NN that is being used. The number displayed may vary depending on the given model parameters. The first layer is an embedding (see latex document). Next, we split the NN in three branches, each containing a convolutional layer and a so-called Global-Max-Pooling (which is basically an ordinary max pooling layer with a pool size equal to the input size). After concatenation, we put a dense layer (= fully connected layer) and a dropout layer (which randomly sets input units to 0 with a given frequency at each step during training time to prevent overfitting.) At the end, the activation layer which finishes the classification.
@@ -109,6 +115,12 @@ batch_size = 50
 
 The NN epochs are the number of iterations to do with the data over the NN. If this value is to high, this may lead to overfitting. The batch size is the amount of data to be trained on at each epoch at once. When increased, this will use more RAM and less time. When decreased, it will yield more accurate results. 
 
+```python
+activation_function = 'relu'
+loss = 'binary_crossentropy'
+optimizer = 'adam'
+```
+The activation function will be the one used all over the CNN, except in the last layer where the sigmoid activation function is kept to obtain a probability as output. The loss parameter is the loss function we want to minimize, other loss such as 'hinge' could be used. The optimizer parameter can also be changed, for example to 'SGD' if we wnat to use stochastic gradient descent.
 
 ```python
 use_pickle = False
