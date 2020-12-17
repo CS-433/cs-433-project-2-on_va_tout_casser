@@ -39,7 +39,7 @@ As said on [Gensim](https://pypi.org/project/gensim/), "Gensim is a Python libra
 #### NLTK
 
 The NLTK library was used to do the preprocessing part.
-Note on the use of the NLTK library : We use this library to obtain lists of words. So if the specified list doesn't exist, it must be downloaded (using the line from the error message).
+Note on the use of the NLTK library: We use this library to obtain lists of words. So if the specified list doesn't exist, it must be downloaded (using the line from the error message).
 
 #### Sklearn
 
