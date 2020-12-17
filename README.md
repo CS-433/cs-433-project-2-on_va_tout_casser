@@ -74,7 +74,7 @@ The folder pointed should contain the files with variable name "pos_file", "neg_
 ```python
 name_model = "Word2Vec_CNN"
 ```
-The name model parameter is used when we store the results to know what we have computed.
+The name_model parameter is used when we store the results to know what model we have computed.
 
 ### Structure
 
