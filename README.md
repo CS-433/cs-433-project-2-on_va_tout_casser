@@ -6,7 +6,7 @@ The purpose of this project was to test and compare different text classificatio
 This is a quick overview of the libraries used.
 ### Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the libraries used in the project. Make sure to have the latest version of pip : use "pip install --upgrade pip" and in Windows "python -m pip install --upgrade pip". Make sure to use at least the 3.7.* python version. 
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the libraries used in the project. Make sure to have the latest version of pip : use "pip install --upgrade pip" and in Windows "python -m pip install --upgrade pip". Make sure to use at least the 3.7.* python version. To use Keras, check if you have the 2.2 tensorflow version, or higher. 
 
 
 ```bash
