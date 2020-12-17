@@ -14,7 +14,7 @@ pip install tensorflow
 pip install keras
 pip install gensim
 pip install nltk
-pip install pickle5
+pip install pickle-mixin
 pip install numpy
 pip install tensorflow-hub
 pip install matplotlib
