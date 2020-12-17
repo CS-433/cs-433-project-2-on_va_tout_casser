@@ -75,7 +75,7 @@ path_processed_dataset = "processed_dataset/"
 path_results = "results/"
 path_model = "model/"
 ```
-The path_processed_dataset is the folder where the processed dataset used for the CNN is stored, the path_results where the results should be stored and path_model where the CNN model is stored after the training.
+The path_processed_dataset is the folder where the processed dataset used for the CNN is stored, the path_results where the results should be stored and path_model where the CNN model is stored after the training. All these folders have already created.
 ```python
 name_model = "Word2Vec_CNN"
 ```
