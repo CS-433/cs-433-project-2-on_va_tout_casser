@@ -12,8 +12,8 @@ path_processed_dataset = "processed_dataset/"
 path_results = "results/"
 path_model = "model/"
 
-pos_file = "train_pos.txt"
-neg_file = "train_neg.txt"
+pos_file = "train_pos_full.txt"
+neg_file = "train_neg_full.txt"
 test_file = "test_data.txt"
 
 name_model = "Word2Vec_CNN"
@@ -37,10 +37,10 @@ trainable = True
 filter_number = 300
 dense_number = 256
 dropout = 0.2
-epochs_nn = 1
-batch_size = 2000
+epochs_nn = 5
+batch_size = 50
 activation_function = 'relu'
-loss = 'hinge'#'binary_crossentropy'
+loss = 'binary_crossentropy'
 optimizer = 'adam'
 
 
