@@ -1,6 +1,6 @@
-# Text Classification on Tweets
+# Twitter sentiment analysis
 
-The purpose of this project was to test and compare different text classification methods. Among the one we have tested (c.f. the latex report), Word2Vec on a specific Neural Network worked the best. This README contains infos about the external libraries we used, infos about the structure of the code, and finally about parameter choosing.
+The purpose of this project is to test and compare different ML text classification methods for performing sentiment analysis on tweets, determining whether they express a positive, neutral, or negative emotion. Among the one we have tested (c.f. the latex report), Word2Vec on a specific Neural Network worked the best. This README contains infos about the external libraries we used, infos about the structure of the code, and finally about parameter choosing.
 
 ## External libraries
 This is a quick overview of the libraries used.
